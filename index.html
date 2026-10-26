@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>燈框工具箱</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* 版面：上方標題＋公告，中間工具卡片（自動從 tools.json 產生），下方更新紀錄。
+   以後新增或更新工具：只要改 tools.json，不用改這個檔。 */
+:root{
+  --bg:#eef2f6; --card:#ffffff; --line:#d6dde6; --fg:#16202b; --mute:#5c6b7b; --soft:#f3f6f9;
+  --accent:#1f6feb; --accent-ink:#ffffff; --ring:#e2630f; --ok:#1f8a4c; --test:#b7791f; --new:#7c3aed;
+  --f-body:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif; --f-num:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141a; --card:#171e26; --line:#2a3440; --fg:#e6ecf2; --mute:#94a3b4; --soft:#1e2731;
+  --accent:#5b9dff; --accent-ink:#06121f; --ring:#f0813a; --ok:#4cc38a; --test:#e0a84a; --new:#a78bfa; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --card:#171e26; --line:#2a3440; --fg:#e6ecf2; --mute:#94a3b4; --soft:#1e2731;
+  --accent:#5b9dff; --accent-ink:#06121f; --ring:#f0813a; --ok:#4cc38a; --test:#e0a84a; --new:#a78bfa; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;padding-block:28px 40px;display:flex;flex-direction:column;gap:22px}
+header{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.mark{width:64px;height:64px}
+h1{margin:0;font-size:clamp(22px,4vw,30px);font-weight:900;letter-spacing:.02em;text-wrap:balance}
+.sub{margin:2px 0 0;color:var(--mute)}
+.org{font-size:13px;color:var(--mute);margin-top:4px}
+.notice{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ring);border-radius:10px;padding:12px 14px;font-size:14.5px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:20px;padding:5px 14px;cursor:pointer}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.search{flex:1;min-width:180px;font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:20px;padding:6px 14px}
+.chip:focus-visible,.search:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.top{display:flex;gap:12px;align-items:flex-start}
+.ic{width:46px;height:46px;flex:none;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.ic svg{width:30px;height:30px}
+.card h2{margin:0;font-size:19px;line-height:1.3}
+.meta{font-family:var(--f-num);font-size:12.5px;color:var(--mute);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.st{font-family:var(--f-body);font-size:12px;padding:0 8px;border-radius:10px;border:1px solid currentColor}
+.st.穩定{color:var(--ok)}.st.測試中{color:var(--test)}.st.新{color:var(--new)}
+.desc{margin:0;color:var(--fg);font-size:14.5px}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;counter-reset:s}
+.steps li{counter-increment:s;font-size:12.5px;background:var(--soft);border-radius:8px;padding:2px 8px}
+.steps li::before{content:counter(s) " ";font-family:var(--f-num);font-weight:600;color:var(--ring)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tags span{font-size:12px;color:var(--mute)}
+.acts{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap}
+.btn{flex:1;text-align:center;text-decoration:none;font-weight:700;border-radius:10px;padding:10px 12px;background:var(--accent);color:var(--accent-ink)}
+.btn.sec{flex:none;background:transparent;color:var(--accent);border:1px solid var(--accent);font-weight:500}
+.empty{color:var(--mute)}
+section h3{margin:0 0 8px;font-size:15px}
+.news{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.news li{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:9px 14px;border-top:1px solid var(--line);font-size:14px}
+.news li:first-child{border-top:0}
+.news time{font-family:var(--f-num);font-size:12.5px;color:var(--mute);padding-top:2px}
+footer{font-size:12.5px;color:var(--mute)}
+@media (max-width:480px){.news li{grid-template-columns:1fr;gap:0}.mark{width:48px;height:48px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="29" fill="none" stroke="var(--line)" stroke-width="2"/>
+      <ellipse cx="32" cy="30" rx="22" ry="7" fill="none" stroke="var(--accent)" stroke-width="3"/>
+      <g fill="var(--ring)"><circle cx="21" cy="44" r="3"/><circle cx="29" cy="46" r="3"/><circle cx="37" cy="46" r="3"/><circle cx="45" cy="44" r="3"/></g>
+    </svg>
+    <div><h1 id="title">足球無人機燈框工具箱</h1><p class="sub" id="sub"></p><div class="org" id="org"></div></div>
+  </header>
+  <div class="notice" id="notice" hidden></div>
+  <div class="bar" id="bar"><input class="search" id="q" type="search" placeholder="找工具…" aria-label="搜尋工具"></div>
+  <div class="grid" id="grid"><p class="empty">載入中…</p></div>
+  <section><h3>更新紀錄</h3><ul class="news" id="news"></ul></section>
+  <footer id="foot"></footer>
+</div>
+
+<!-- 備援資料：直接雙擊打開（不是從網站開）時讀不到 tools.json，就用這份。上傳 GitHub 後以 tools.json 為準。 -->
+<script type="application/json" id="fallback">{"site":{"title":"足球無人機燈框工具箱"},"tools":[{"id":"ledframe","name":"燈框設計器","file":"ledframe.html","icon":"frame","tags":["學生","老師"],"desc":"設計尾燈燈框並下載 STL。"},{"id":"stl","name":"STL 檢視器","file":"stl-viewer.html","icon":"cube","tags":["通用"],"desc":"不用安裝軟體就能開 STL。"}],"news":[]}</script>
+<script>
+const ICONS = {
+  frame: '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="16" cy="11" rx="12" ry="4"/><path d="M6 13v6l5 5h10l5-5v-6"/><circle cx="11" cy="20" r="1.6" fill="currentColor"/><circle cx="16" cy="21" r="1.6" fill="currentColor"/><circle cx="21" cy="20" r="1.6" fill="currentColor"/></svg>',
+  cube: '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M16 4l11 6v12l-11 6-11-6V10z"/><path d="M5 10l11 6 11-6M16 16v12"/></svg>',
+  ruler: '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="24" height="10" rx="1"/><path d="M9 11v4M14 11v6M19 11v4M24 11v6"/></svg>',
+  doc: '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 4h11l5 5v19H8z"/><path d="M12 15h8M12 20h8"/></svg>',
+  tool: '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 5a6 6 0 0 0-6 8L5 22l5 5 9-9a6 6 0 0 0 8-6l-4 1-3-3z"/></svg>',
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+let DATA = null, tag = '全部';
+async function load() {
+  try { const r = await fetch('tools.json', { cache: 'no-store' }); if (!r.ok) throw 0; DATA = await r.json(); }
+  catch (e) { DATA = JSON.parse(document.getElementById('fallback').textContent); }
+  const s = DATA.site || {};
+  document.getElementById('title').textContent = s.title || '工具箱'; document.title = s.title || '工具箱';
+  document.getElementById('sub').textContent = s.subtitle || '';
+  document.getElementById('org').textContent = s.org || '';
+  const n = document.getElementById('notice'); if (s.notice) { n.textContent = s.notice; n.hidden = false; }
+  const tags = ['全部', ...new Set((DATA.tools || []).filter((t) => !t.hidden).flatMap((t) => t.tags || []))];
+  const bar = document.getElementById('bar');
+  tags.reverse().forEach((t) => { const b = document.createElement('button'); b.className = 'chip' + (t === tag ? ' on' : ''); b.textContent = t; b.onclick = () => { tag = t; bar.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b)); render(); }; bar.prepend(b); });
+  document.getElementById('q').oninput = render;
+  const news = DATA.news || []; document.getElementById('news').innerHTML = news.length ? news.map((x) => `<li><time>${esc(x.date)}</time><span>${esc(x.text)}</span></li>`).join('') : '<li><span class="empty">還沒有紀錄</span></li>';
+  document.getElementById('foot').textContent = s.footer || '';
+  render();
+}
+function render() {
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const list = (DATA.tools || []).filter((t) => !t.hidden && (tag === '全部' || (t.tags || []).includes(tag)) && (!q || [t.name, t.desc, ...(t.tags || [])].join(' ').toLowerCase().includes(q)));
+  const g = document.getElementById('grid');
+  if (!list.length) { g.innerHTML = '<p class="empty">找不到符合的工具。</p>'; return; }
+  g.innerHTML = list.map((t) => `
+    <article class="card">
+      <div class="top"><div class="ic">${ICONS[t.icon] || ICONS.tool}</div>
+        <div><h2>${esc(t.name)}</h2><div class="meta">${t.version ? `<span>v${esc(t.version)}</span>` : ''}${t.updated ? `<span>${esc(t.updated)}</span>` : ''}${t.status ? `<span class="st ${esc(t.status)}">${esc(t.status)}</span>` : ''}</div></div></div>
+      <p class="desc">${esc(t.desc)}</p>
+      ${t.steps && t.steps.length ? `<ol class="steps">${t.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
+      <div class="tags">${(t.tags || []).map((x) => `<span>#${esc(x)}</span>`).join('')}</div>
+      <div class="acts"><a class="btn" href="${esc(t.file)}">開啟</a>${t.offline !== false ? `<a class="btn sec" href="${esc(t.file)}" download>下載離線版</a>` : ''}</div>
+    </article>`).join('');
+}
+load();
+</script>
+</body>
+</html>
