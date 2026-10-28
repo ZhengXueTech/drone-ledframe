@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大家的作品</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f7f9;--fg:#1f2937;--muted:#6b7280;--card:#fff;--border:#e5e7eb;--accent:#2563eb;--frame:#d97706;--skel:#dc2626;--chip:#f3f4f6}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f172a;--fg:#e5e7eb;--muted:#94a3b8;--card:#111827;--border:#273244;--accent:#60a5fa;--frame:#fbbf24;--skel:#f87171;--chip:#1f2937}}
+:root[data-theme="dark"]{--bg:#0f172a;--fg:#e5e7eb;--muted:#94a3b8;--card:#111827;--border:#273244;--accent:#60a5fa;--frame:#fbbf24;--skel:#f87171;--chip:#1f2937}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Noto Sans TC",sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:22px 16px 40px}
+a{color:var(--accent)}
+.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{font-size:26px;font-weight:900;margin:0}
+.back{font-size:13px}
+.lead{color:var(--muted);font-size:14px;line-height:1.7;margin:8px 0 16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chips button{border:1px solid var(--border);background:var(--card);color:var(--fg);border-radius:20px;padding:6px 14px;font-size:13.5px;cursor:pointer;font-family:inherit}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.kind{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:12px;align-self:flex-start;color:#fff}
+.kind.ledframe{background:var(--frame)}.kind.skeleton{background:var(--skel)}
+.who{font-weight:700;font-size:15px}
+.meta{font-size:12px;color:var(--muted)}
+.note{font-size:13.5px;line-height:1.6;flex:1}
+.btns{display:flex;gap:6px;margin-top:6px}
+.btns a,.btns button{flex:1;text-align:center;border-radius:9px;padding:8px 6px;font-size:13px;text-decoration:none;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:var(--chip);color:var(--fg)}
+.btns a.go{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.empty{background:var(--card);border:1px dashed var(--border);border-radius:14px;padding:24px;text-align:center;color:var(--muted);line-height:1.8}
+.foot{font-size:11.5px;color:var(--muted);margin-top:26px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>大家的作品</h1><a class="back" href="index.html">← 回工具箱</a></div>
+  <p class="lead">同學和老師分享的燈框、骨架設計。點「打開」就會在設計器裡載入，可以直接印，也可以改成自己的版本。<br>想分享自己的：在燈框設計器或骨架產生器按「分享到大家的作品」，老師看過就會出現在這裡。</p>
+  <div class="chips" id="chips"><button data-k="all" class="on">全部</button><button data-k="ledframe">燈框</button><button data-k="skeleton">骨架</button></div>
+  <div id="list" class="grid"></div>
+  <div class="foot">只顯示老師審核過的作品。顯示的名字是作者自己填的暱稱。© 2026 何政學（新北市立中正國民中學 創客社）・CC BY-NC 4.0</div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+let LIST = [], kind = 'all';
+function render() {
+  const items = LIST.filter((x) => kind === 'all' || x.kind === kind);
+  if (!items.length) { $('list').innerHTML = `<div class="empty">${LIST.length ? '這一類還沒有作品。' : '還沒有公開的作品，等你來當第一個！'}</div>`; return; }
+  $('list').innerHTML = items.map((x, i) => {
+    const isF = x.kind === 'ledframe';
+    const href = isF ? `ledframe.html#lfd=${encodeURIComponent(x.code)}` : `skeleton.html#skd=${encodeURIComponent(x.code)}${x.frame ? '&lfd=' + encodeURIComponent(x.frame) : ''}`;
+    return `<div class="card"><span class="kind ${esc(x.kind)}">${isF ? '燈框' : '骨架' + (x.frame ? '＋燈框' : '')}</span>
+      <div class="who">${esc(x.nick || '匿名')}</div>
+      <div class="meta">${esc(x.school || '')}${x.school ? '・' : ''}${esc(x.time)}${x.weight ? '・約 ' + esc(x.weight) + ' g' : ''}</div>
+      <div class="note">${esc(x.note || '')}</div>
+      <div class="btns"><a class="go" href="${href}">打開</a><button data-i="${i}">複製設計碼</button></div></div>`;
+  }).join('');
+  $('list').querySelectorAll('button[data-i]').forEach((b) => b.onclick = async () => { const x = items[+b.dataset.i]; try { await navigator.clipboard.writeText(x.code); b.textContent = '已複製'; } catch (e) { prompt('請複製：', x.code); } });
+}
+document.querySelectorAll('#chips button').forEach((b) => b.onclick = () => { kind = b.dataset.k; document.querySelectorAll('#chips button').forEach((c) => c.classList.toggle('on', c === b)); render(); });
+(async () => {
+  $('list').innerHTML = '<div class="empty">讀取中…</div>';
+  try {
+    const cfg = await (await fetch('share-config.json', { cache: 'no-store' })).json();
+    if (!cfg.endpoint) { $('list').innerHTML = '<div class="empty">作品牆還沒啟用（老師還沒設定 share-config.json）。</div>'; return; }
+    const r = await (await fetch(cfg.endpoint, { cache: 'no-store' })).json();
+    LIST = (r && r.list) || []; render();
+  } catch (e) { $('list').innerHTML = `<div class="empty">讀不到作品清單，請稍後再試。<br><small>${esc(e.message)}</small></div>`; }
+})();
+</script>
+</body>
+</html>
