@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head><body>
+<style>.homeBtn{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;text-decoration:none;color:inherit;border:1px solid currentColor;border-radius:999px;padding:3px 10px;margin-right:8px;opacity:.75;white-space:nowrap;font-family:"Noto Sans TC",sans-serif}.homeBtn:hover{opacity:1}
+</style></head><body>
 <title>STL 檢視器</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -80,6 +81,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 </style>
 
 <header>
+  <a class="homeBtn" href="https://zhengxuetech.github.io/drone-ledframe/" title="回到燈框工具箱首頁">← 工具箱</a>
   <h1>STL 檢視器<small>單位 mm</small></h1>
   <div class="sp"></div>
   <button class="btn pri" id="openBtn">開啟 STL 檔</button>
@@ -136,6 +138,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <div class="row"><button class="btn" id="mBtn">開始量兩點距離</button><button class="btn" id="mClr">清除</button></div>
       <div id="mres" class="note">點模型表面上的兩個點，就會顯示距離。</div>
     </section>
+    <section><p class="note">© 2026 何政學（新北市立中正國民中學 創客社）・CC BY-NC 4.0（須標示來源、不得商業使用）・本工具與無人機廠商無關，非原廠產品・使用 three.js（MIT）</p></section>
   </aside>
 </main>
 
