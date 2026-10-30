@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>燈條焊點實驗室</title>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;700;900&display=swap">
+<style>
+/* 版面概念：一張焊接工作台。每個區塊是一個「工作站」，左文右互動，手機上直排。 */
+:root{
+  --bg:#eef2ef; --surface:#ffffff; --sunk:#e4eae6; --ink:#16201b; --muted:#4c5a52; --line:#c8d2cc;
+  --copper:#a4541d; --copper-soft:#f5e4d6; --mask:#1b6a47; --mask-soft:#dcefe4;
+  --ok:#1b774a; --ok-soft:#dcf1e5; --warn:#8a5c00; --warn-soft:#fbefd1; --danger:#b3301b; --danger-soft:#fbe0d9;
+  --wire-v:#cf2e26; --wire-s:#c99700; --wire-g:#1d201e;
+  --tape:#fbfbf8; --tape-edge:#cfd4cf; --led-off:#dfe3df; --led-off-edge:#aab1aa; --solder:#b9bec2;
+  --f-display:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  --f-body:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d1411; --surface:#141e19; --sunk:#0f1814; --ink:#e3eae5; --muted:#9caaa1; --line:#29372f;
+  --copper:#e5965f; --copper-soft:#3a2416; --mask:#5cc796; --mask-soft:#163226;
+  --ok:#62d497; --ok-soft:#153826; --warn:#f2bd4a; --warn-soft:#382b0c; --danger:#ff7c66; --danger-soft:#431a10;
+  --wire-v:#ff5b51; --wire-s:#ffd23f; --wire-g:#cdd5d0;
+  --tape:#e6e9e4; --tape-edge:#8f978f; --led-off:#cdd2cc; --led-off-edge:#8d958d; --solder:#9aa1a6;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0d1411; --surface:#141e19; --sunk:#0f1814; --ink:#e3eae5; --muted:#9caaa1; --line:#29372f;
+  --copper:#e5965f; --copper-soft:#3a2416; --mask:#5cc796; --mask-soft:#163226;
+  --ok:#62d497; --ok-soft:#153826; --warn:#f2bd4a; --warn-soft:#382b0c; --danger:#ff7c66; --danger-soft:#431a10;
+  --wire-v:#ff5b51; --wire-s:#ffd23f; --wire-g:#cdd5d0;
+  --tape:#e6e9e4; --tape-edge:#8f978f; --led-off:#cdd2cc; --led-off-edge:#8d958d; --solder:#9aa1a6;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+p{margin:0}
+.mono{font-family:var(--f-mono)}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--copper);outline-offset:2px}
+
+/* hero */
+.hero{padding-block:40px 24px;display:grid;gap:14px}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--copper)}
+.hero h1{font-size:clamp(34px,6vw,58px);font-weight:900;line-height:1.1}
+.hero .lead{max-width:62ch;color:var(--muted);font-size:17px}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.flow b{color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 10px;font-weight:700}
+
+/* nav */
+nav.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+  margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:10px max(16px,env(safe-area-inset-left,0px))}
+nav.top .wrap{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+nav.top a{flex:none;text-decoration:none;color:var(--ink);font-size:14px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+nav.top a:hover{border-color:var(--copper);color:var(--copper)}
+
+section.station{padding-block:44px;border-bottom:1px solid var(--line);display:grid;gap:20px;scroll-margin-top:64px}
+.station-head{display:grid;gap:6px;max-width:68ch}
+.tag{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;color:var(--copper);font-weight:600}
+.station h2{font-size:clamp(24px,3.4vw,32px);font-weight:900;line-height:1.25}
+.station-head p{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+@media (max-width:820px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:14px;min-width:0}
+.panel h3{font-size:18px;font-weight:700}
+.hint{font-size:14px;color:var(--muted)}
+
+/* chips / toggles */
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:15px;min-height:44px}
+.chip[aria-pressed="true"]{border-color:var(--danger);background:var(--danger-soft);color:var(--danger)}
+.chip.good[aria-pressed="true"]{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.chip.sel[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--surface)}
+.btn{border:none;background:var(--ink);color:var(--surface);border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;min-height:44px}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.copper{background:var(--copper);color:#fff}
+label.field{display:grid;gap:4px;font-size:14px;font-weight:700}
+select{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:44px}
+input[type=range]{width:100%;accent-color:var(--copper)}
+.group-label{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+
+/* status cards */
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;margin-right:6px;vertical-align:2px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.danger{background:var(--danger-soft);color:var(--danger)}
+.result{display:grid;gap:4px;padding:12px 14px;border-radius:10px;background:var(--sunk)}
+.result .t{font-weight:700}
+.result p{font-size:15px}
+.verdict{padding:12px 16px;border-radius:10px;font-weight:700;font-size:17px}
+.verdict.ok{background:var(--ok-soft);color:var(--ok)}
+.verdict.warn{background:var(--warn-soft);color:var(--warn)}
+.verdict.danger{background:var(--danger-soft);color:var(--danger)}
+
+/* pads svg */
+.padsvg{width:100%;max-width:420px;height:auto;display:block;margin:0 auto}
+.bridge-hit{cursor:pointer}
+.bridge-hit .blob{fill:var(--solder);stroke:var(--muted);stroke-width:1.5;opacity:0;transition:opacity .15s}
+.bridge-hit.on .blob{opacity:1}
+.bridge-hit .guide{stroke:var(--line);stroke-width:2;stroke-dasharray:4 5}
+.bridge-hit:hover .guide{stroke:var(--copper)}
+.bridge-hit:focus-visible{outline:none}
+.bridge-hit:focus-visible .guide{stroke:var(--copper);stroke-width:4}
+
+/* meter */
+.meter{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center}
+.meter-screen{width:150px;height:76px;border-radius:10px;background:#c9d4b8;color:#1a2214;border:6px solid #2a2f2b;
+  font-family:var(--f-mono);font-size:30px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.meter-screen.beep{animation:flash .25s steps(2) infinite}
+@keyframes flash{50%{background:#e6efd6}}
+@media (prefers-reduced-motion: reduce){.meter-screen.beep{animation:none;background:#e6efd6}}
+.meter-text{font-weight:700}
+
+/* ring */
+.ring-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;justify-items:center}
+.ringsvg{width:100%;max-width:360px;height:auto}
+.statusbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;font-size:14px}
+.ledL{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-weight:600}
+.ledL i{width:14px;height:14px;border-radius:3px;background:var(--led-off);border:1px solid var(--led-off-edge);display:inline-block}
+.ledL.on i{background:#ff9f1a;border-color:#c06d00;box-shadow:0 0 8px #ffb347}
+.steplabel{font-weight:700;min-height:1.6em;text-align:center}
+.seen{display:flex;gap:8px;flex-wrap:wrap}
+.seen span{min-width:64px;text-align:center;border-radius:8px;padding:6px 8px;font-weight:700;border:1.5px dashed var(--line);font-size:14px}
+.answer{background:var(--mask-soft);border-radius:10px;padding:14px 16px;display:grid;gap:6px}
+.answer b{color:var(--mask)}
+
+/* reverse */
+.rev-svg{width:100%;height:auto;max-width:440px}
+.flowline{stroke-width:4;fill:none}
+.cur{stroke:var(--danger);stroke-width:5;fill:none;stroke-dasharray:10 8;animation:dash 0.8s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-18}}
+@media (prefers-reduced-motion: reduce){.cur{animation:none}}
+
+/* tables */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px;min-width:420px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--muted);letter-spacing:.04em;border-bottom:1.5px solid var(--ink)}
+
+/* wiring */
+.wiring{display:grid;gap:10px}
+.wrow{display:grid;grid-template-columns:96px minmax(0,1fr) 110px;align-items:center;gap:10px}
+.pin{border:2px solid var(--ink);border-radius:8px;padding:6px 8px;text-align:center;font-weight:700;font-family:var(--f-mono);font-size:15px;background:var(--surface)}
+.wire{height:6px;border-radius:3px;position:relative;display:flex;align-items:center;justify-content:center}
+.wire .res{background:var(--surface);border:2px solid var(--ink);border-radius:6px;padding:0 8px;font-size:13px;font-weight:700;font-family:var(--f-mono);line-height:22px;white-space:nowrap}
+.jst{border-radius:8px;padding:6px 8px;text-align:center;font-weight:700;font-size:14px;border:2px solid}
+.note{border-left:none;background:var(--warn-soft);color:var(--ink);border-radius:10px;padding:12px 14px;font-size:15px}
+.note b{color:var(--warn)}
+
+/* tips */
+.tips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:820px){.tips{grid-template-columns:minmax(0,1fr)}}
+.tip{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:4px}
+.tip .k{font-weight:700}
+.tip p{font-size:15px;color:var(--muted)}
+.order{font-family:var(--f-mono);font-weight:600;color:var(--copper);font-size:13px}
+
+/* log */
+.log{display:grid;gap:8px}
+.log li{list-style:none;display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.log ul{margin:0;padding:0}
+.st{font-size:12px;font-weight:700;border-radius:6px;padding:2px 8px;height:fit-content;text-align:center}
+.st.done{background:var(--ok-soft);color:var(--ok)}
+.st.next{background:var(--warn-soft);color:var(--warn)}
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+summary{cursor:pointer;font-weight:700}
+pre{overflow-x:auto;background:var(--sunk);border-radius:10px;padding:14px;font-family:var(--f-mono);font-size:13px;line-height:1.55;margin:12px 0 0}
+.homeBtn{display:inline-flex;align-items:center;font-size:13px;font-weight:700;letter-spacing:0;text-decoration:none;color:var(--ink);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;margin-right:10px}
+.homeBtn:hover{border-color:var(--copper);color:var(--copper)}
+footer{padding-block:28px 48px;color:var(--muted);font-size:14px}
+a{color:var(--copper)}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow"><a class="homeBtn" href="https://zhengxuetech.github.io/drone-ledframe/" title="回到燈框工具箱首頁">← 工具箱</a>足球無人機環燈・WS2812</div>
+  <h1>燈條焊點實驗室</h1>
+  <p class="lead">燈條從焊接、檢查到通電測試，這一頁都整理好了。按按鈕、切開關，看看焊錯時 Arduino 和燈條會發生什麼事。</p>
+  <div class="flow"><b>焊接</b>→<b>三嗶檢查</b>→<b>插上測試治具</b>→<b>看測試燈判讀</b>→<b>裝上無人機</b></div>
+</header>
+</div>
+
+<nav class="top" aria-label="章節">
+  <div class="wrap">
+    <a href="#solder">焊接技巧</a>
+    <a href="#beep">三嗶檢查</a>
+    <a href="#short">短路模擬</a>
+    <a href="#v3">測試燈判讀</a>
+    <a href="#reverse">接反會怎樣</a>
+    <a href="#jig">測試治具</a>
+    <a href="#build">加工圖</a>
+    <a href="#log">測試程式</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- 焊接 -->
+<section class="station" id="solder">
+  <div class="station-head">
+    <span class="tag">STATION 1・焊接</span>
+    <h2>小燈條為什麼特別容易短路</h2>
+    <p>我們的燈條很窄，三個焊點排成三角形：上面是 <b>+</b> 和 <b>−</b>，下面中間是訊號點。線都從同一端進來，焊上排的線一定會經過訊號點旁邊，錫多一點就連在一起了。</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <svg class="padsvg" viewBox="0 0 400 240" role="img" aria-label="燈條末端三個焊點的位置示意：上排正極與負極，下排中間訊號點">
+        <rect x="10" y="40" width="380" height="160" rx="6" fill="var(--tape)" stroke="var(--tape-edge)" stroke-width="2"/>
+        <ellipse cx="150" cy="90" rx="22" ry="17" fill="var(--copper)" opacity=".85"/>
+        <ellipse cx="250" cy="90" rx="22" ry="17" fill="var(--copper)" opacity=".85"/>
+        <ellipse cx="200" cy="150" rx="22" ry="17" fill="var(--copper)" opacity=".85"/>
+        <text x="150" y="60" text-anchor="middle" font-size="16" font-weight="700" fill="var(--wire-v)">+ V</text>
+        <text x="250" y="60" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">− G</text>
+        <text x="200" y="192" text-anchor="middle" font-size="15" font-weight="700" fill="#8a6a00">S 訊號</text>
+        <rect x="310" y="105" width="56" height="44" rx="4" fill="none" stroke="var(--ink)" stroke-width="2"/>
+        <rect x="324" y="114" width="28" height="26" rx="3" fill="var(--led-off)" stroke="var(--led-off-edge)"/>
+        <path d="M 40 128 L 96 128" stroke="var(--mask)" stroke-width="3" fill="none"/>
+        <path d="M 96 128 L 86 122 L 86 134 Z" fill="var(--mask)"/>
+        <text x="20" y="160" font-size="13" fill="var(--mask)" font-weight="700">資料方向 →</text>
+        <ellipse cx="200" cy="118" rx="44" ry="26" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-dasharray="6 5"/>
+        <text x="200" y="228" text-anchor="middle" font-size="13" fill="var(--danger)" font-weight="700">虛線圈：最常連錫的地方</text>
+      </svg>
+      <p class="hint">燈條上的箭頭要從 JST 接頭這端往外指。焊到另一端（DOUT 出口）的話，整條都不會亮。</p>
+    </div>
+    <div class="tips">
+      <div class="tip"><span class="order">步驟 1</span><span class="k">兩邊都先上錫</span><p>焊點先上一點錫，線頭也先上錫。之後壓在一起，用烙鐵碰一下就好，<b>不要另外再加錫</b>。</p></div>
+      <div class="tip"><span class="order">步驟 2</span><span class="k">先焊下面的訊號點</span><p>訊號線貼平、往外拉，上排兩條再從兩側進來，三條線就不會交叉。</p></div>
+      <div class="tip"><span class="order">線頭</span><span class="k">裸銅只留 1～2mm</span><p>外皮剝太長，露出來的銅線最容易碰到旁邊的焊點。</p></div>
+      <div class="tip"><span class="order">線材</span><span class="k">用 26～28AWG 細矽膠線</span><p>線太粗不好焊，也容易把小焊點整片拉起來。</p></div>
+      <div class="tip"><span class="order">隔開</span><span class="k">Kapton 膠帶當隔牆</span><p>焊點之間貼一條細的 Kapton，耐熱 260°C 以上。藍色矽膠焊接墊約耐 500°C，PLA 約 60°C 就軟了，不能讓烙鐵碰到。</p></div>
+      <div class="tip"><span class="order">收尾</span><span class="k">透明熱縮管取代電火布</span><p>能絕緣也能固定線，透明的看得到焊點，而且不會留下黏膠殘留。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 三嗶 -->
+<section class="station" id="beep">
+  <div class="station-head">
+    <span class="tag">STATION 2・通電前</span>
+    <h2>三用電表三嗶檢查</h2>
+    <p>三用電表轉到蜂鳴檔，燈條<b>先不要接 Arduino</b>。量 V↔G、S↔G、S↔V 三組。<b>一直嗶就是短路</b>；V↔G 嗶一下就停是燈條上的電容在充電，屬於正常。</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>量量看：這條燈條可以通電嗎？</h3>
+      <div class="meter">
+        <div class="meter-screen" id="meterScreen" aria-live="polite">----</div>
+        <div class="meter-text" id="meterText">選一組焊點，把探棒碰上去。</div>
+      </div>
+      <div class="row" role="group" aria-label="選擇要量的焊點">
+        <button class="chip" type="button" id="m-VG">V ↔ G</button>
+        <button class="chip" type="button" id="m-SG">S ↔ G</button>
+        <button class="chip" type="button" id="m-SV">S ↔ V</button>
+      </div>
+      <div class="row">
+        <button class="btn" type="button" id="judgeOk">可以通電</button>
+        <button class="btn ghost" type="button" id="judgeFix">要重焊</button>
+        <button class="btn ghost" type="button" id="newStrip">換一條燈條</button>
+      </div>
+      <p id="beepFeedback" class="hint" aria-live="polite">每條燈條的焊點狀況是隨機的。三組都量過再下判斷。</p>
+    </div>
+    <div class="panel">
+      <h3>聽到什麼，代表什麼</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>電表反應</th><th>意思</th><th>怎麼做</th></tr></thead>
+        <tbody>
+          <tr><td><b>一直嗶</b>，螢幕接近 0Ω</td><td>短路</td><td>用吸錫線清掉多的錫，重焊</td></tr>
+          <tr><td>V↔G <b>嗶一下就停</b></td><td>電容在充電</td><td>正常，量下一組</td></tr>
+          <tr><td>沒聲音，顯示 OL</td><td>沒有連在一起</td><td>正常，量下一組</td></tr>
+        </tbody>
+      </table></div>
+      <p class="hint">三組都不會一直嗶，才插上測試治具通電。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 短路模擬 -->
+<section class="station" id="short">
+  <div class="station-head">
+    <span class="tag">STATION 3・如果沒檢查就通電</span>
+    <h2>短路模擬：誰會壞掉？</h2>
+    <p>點焊點之間的虛線，就能「焊出」一塊連錫。再切換保護零件和電源，看看結果有什麼不同。</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <svg class="padsvg" viewBox="0 0 400 230" role="group" aria-label="點兩個焊點之間的虛線，加上或清掉連錫">
+        <rect x="10" y="20" width="380" height="190" rx="6" fill="var(--tape)" stroke="var(--tape-edge)" stroke-width="2"/>
+        <g class="bridge-hit" id="b-VG" tabindex="0" role="button" aria-label="V 與 G 之間連錫">
+          <line class="guide" x1="150" y1="80" x2="250" y2="80"/>
+          <line x1="150" y1="80" x2="250" y2="80" stroke="transparent" stroke-width="30"/>
+          <ellipse class="blob" cx="200" cy="80" rx="42" ry="14"/>
+        </g>
+        <g class="bridge-hit" id="b-SV" tabindex="0" role="button" aria-label="S 與 V 之間連錫">
+          <line class="guide" x1="150" y1="80" x2="200" y2="160"/>
+          <line x1="150" y1="80" x2="200" y2="160" stroke="transparent" stroke-width="30"/>
+          <ellipse class="blob" cx="175" cy="120" rx="36" ry="13" transform="rotate(58 175 120)"/>
+        </g>
+        <g class="bridge-hit" id="b-SG" tabindex="0" role="button" aria-label="S 與 G 之間連錫">
+          <line class="guide" x1="250" y1="80" x2="200" y2="160"/>
+          <line x1="250" y1="80" x2="200" y2="160" stroke="transparent" stroke-width="30"/>
+          <ellipse class="blob" cx="225" cy="120" rx="36" ry="13" transform="rotate(-58 225 120)"/>
+        </g>
+        <ellipse cx="150" cy="80" rx="22" ry="17" fill="var(--copper)"/>
+        <ellipse cx="250" cy="80" rx="22" ry="17" fill="var(--copper)"/>
+        <ellipse cx="200" cy="160" rx="22" ry="17" fill="var(--copper)"/>
+        <text x="96" y="86" text-anchor="middle" font-size="17" font-weight="700" fill="var(--wire-v)" id="lblV">V +</text>
+        <text x="304" y="86" text-anchor="middle" font-size="17" font-weight="700" fill="var(--ink)" id="lblG">G −</text>
+        <text x="200" y="202" text-anchor="middle" font-size="16" font-weight="700" fill="#8a6a00">S 訊號</text>
+      </svg>
+      <div class="grid" style="display:grid;gap:12px">
+        <div>
+          <div class="group-label">連錫（也可以點上圖）</div>
+          <div class="row">
+            <button class="chip" type="button" data-bridge="VG" aria-pressed="false">V–G 連錫</button>
+            <button class="chip" type="button" data-bridge="SG" aria-pressed="false">S–G 連錫</button>
+            <button class="chip" type="button" data-bridge="SV" aria-pressed="false">S–V 連錫</button>
+            <button class="chip" type="button" id="revBtn" aria-pressed="false">V、G 接反</button>
+          </div>
+        </div>
+        <div>
+          <div class="group-label">保護</div>
+          <div class="row">
+            <button class="chip good" type="button" id="resBtn" aria-pressed="true">S 線串 220Ω 電阻</button>
+          </div>
+        </div>
+        <div>
+          <div class="group-label">電源</div>
+          <div class="row" role="group" aria-label="電源">
+            <button class="chip sel" type="button" data-supply="fuse" aria-pressed="true">正版 Leonardo／Uno 的 USB</button>
+            <button class="chip sel" type="button" data-supply="nofuse" aria-pressed="false">沒有保險絲的相容板</button>
+            <button class="chip sel" type="button" data-supply="battery" aria-pressed="false">無人機電池／飛控</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" aria-live="polite">
+      <h3>結果</h3>
+      <div id="verdict" class="verdict ok">一切正常</div>
+      <div id="results" style="display:grid;gap:10px"></div>
+      <div class="result"><span class="t">你會看到</span><p id="observe"></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- v3 -->
+<section class="station" id="v3">
+  <div class="station-head">
+    <span class="tag">STATION 4・通電測試</span>
+    <h2>測試燈判讀（LEDv3 程式）</h2>
+    <p>程式每一輪會依序播放：第 1、2、3 段各只送一個位元組，接著全白，再跑一次跑馬燈。<b>把前三段看到的顏色照順序念出來，就是燈條的色序。</b>某顆燈和其他顆不一樣，那顆就是壞燈。</p>
+  </div>
+  <div class="grid2">
+    <div class="panel ring-wrap">
+      <svg class="ringsvg" id="ring" viewBox="0 0 360 360" role="img" aria-label="30 顆燈的環燈模擬"></svg>
+      <div class="statusbar">
+        <span class="ledL" id="ledL"><i></i>板子 L 燈</span>
+        <span class="steplabel" id="stepLabel">按「播放」開始</span>
+      </div>
+      <div class="row" style="justify-content:center">
+        <button class="btn copper" type="button" id="playBtn">▶ 播放</button>
+        <button class="btn ghost" type="button" id="quizBtn">隨機出題</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div id="setupBox" style="display:grid;gap:12px">
+        <h3>設定這條燈條</h3>
+        <div class="row" style="align-items:end">
+          <label class="field" for="orderSel">色序
+            <select id="orderSel">
+              <option value="GRB">GRB（原廠常見）</option>
+              <option value="RGB">RGB（副廠常見）</option>
+              <option value="BRG">BRG</option>
+              <option value="RBG">RBG</option>
+              <option value="GBR">GBR</option>
+              <option value="BGR">BGR</option>
+            </select>
+          </label>
+          <label class="field" for="faultSel">故障
+            <select id="faultSel">
+              <option value="none">沒有故障</option>
+              <option value="deadR">第 n 顆紅色晶片壞</option>
+              <option value="deadG">第 n 顆綠色晶片壞</option>
+              <option value="deadB">第 n 顆藍色晶片壞</option>
+              <option value="break">第 n 顆後面的焊點斷</option>
+              <option value="mixed">第 n 顆混到不同色序</option>
+              <option value="nodata">S 沒焊上（收不到資料）</option>
+              <option value="rgbw">其實是 RGBW 四色燈條</option>
+            </select>
+          </label>
+        </div>
+        <label class="field" for="nRange">故障在第 <span id="nVal" class="mono">8</span> 顆
+          <input type="range" id="nRange" min="1" max="30" value="8">
+        </label>
+      </div>
+      <div id="quizBox" hidden style="display:grid;gap:8px">
+        <h3>出題中</h3>
+        <p class="hint">燈條的色序和故障都是隨機的。看完一輪，自己判斷後再按「看答案」。</p>
+        <div class="row">
+          <button class="btn" type="button" id="revealBtn">看答案</button>
+          <button class="btn ghost" type="button" id="nextQuiz">下一題</button>
+          <button class="btn ghost" type="button" id="exitQuiz">回到自己設定</button>
+        </div>
+      </div>
+      <div style="display:grid;gap:6px">
+        <div class="group-label">前三段大部分的燈看起來是</div>
+        <div class="seen"><span id="seen0">第 1 段</span><span id="seen1">第 2 段</span><span id="seen2">第 3 段</span></div>
+      </div>
+      <div class="answer" id="answer" hidden></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>看到的現象</th><th>代表什麼</th></tr></thead>
+        <tbody>
+          <tr><td>某顆只在某一段不亮</td><td>那顆的該色晶片壞了</td></tr>
+          <tr><td>某顆顏色跟大家不一樣</td><td>混到不同色序的燈珠</td></tr>
+          <tr><td>從某顆開始後面全暗</td><td>最後亮的那顆和下一顆之間焊點斷</td></tr>
+          <tr><td>跑馬燈停在某顆</td><td>同上，可以直接數出位置</td></tr>
+          <tr><td>顏色一顆一顆亂跳</td><td>可能是 RGBW 四色燈條，這支程式不適用</td></tr>
+          <tr><td>全部不亮，板子正常</td><td>S 沒焊上、S 短路，或焊到出口端</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- 接反 -->
+<section class="station" id="reverse">
+  <div class="station-head">
+    <span class="tag">STATION 5・原理</span>
+    <h2>V、G 接反：普通 LED 沒事，WS2812 有風險</h2>
+    <p>普通 LED 接反只是不亮。WS2812 每顆燈珠裡還有一顆控制晶片，晶片的電源腳之間藏著一顆保護用的二極體。平常它是反向、不導通的；V、G 一接反就變成順向導通，等於電流直接穿過晶片短路。</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="row">
+        <button class="chip sel" type="button" data-pol="ok" aria-pressed="true">正接</button>
+        <button class="chip sel" type="button" data-pol="rev" aria-pressed="false">接反</button>
+      </div>
+      <svg class="rev-svg" viewBox="0 0 440 250" role="img" aria-label="普通 LED 與 WS2812 晶片在正接和接反時的電流路徑" id="revSvg">
+        <text x="110" y="22" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">普通 LED</text>
+        <text x="330" y="22" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">WS2812 晶片</text>
+        <text x="40" y="60" font-size="14" font-weight="700" id="rTopL" fill="var(--wire-v)">+5V</text>
+        <text x="40" y="226" font-size="14" font-weight="700" id="rBotL" fill="var(--ink)">GND</text>
+        <line x1="110" y1="44" x2="110" y2="110" stroke="var(--ink)" stroke-width="3"/>
+        <line x1="110" y1="150" x2="110" y2="230" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M 90 110 L 130 110 L 110 150 Z" fill="var(--ink)"/>
+        <line x1="90" y1="150" x2="130" y2="150" stroke="var(--ink)" stroke-width="3"/>
+        <path id="ledCur" class="cur" d="M 122 50 L 122 225" hidden/>
+        <text x="146" y="136" font-size="13" font-weight="700" id="ledState" fill="var(--ok)">亮</text>
+        <rect x="260" y="60" width="140" height="150" rx="10" fill="var(--sunk)" stroke="var(--ink)" stroke-width="2"/>
+        <text x="330" y="84" text-anchor="middle" font-size="12" fill="var(--muted)">控制晶片</text>
+        <line x1="330" y1="40" x2="330" y2="110" stroke="var(--ink)" stroke-width="3"/>
+        <line x1="330" y1="160" x2="330" y2="232" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M 310 160 L 350 160 L 330 120 Z" fill="var(--ink)"/>
+        <line x1="310" y1="120" x2="350" y2="120" stroke="var(--ink)" stroke-width="3"/>
+        <text x="360" y="146" font-size="12" fill="var(--muted)">保護</text>
+        <text x="360" y="162" font-size="12" fill="var(--muted)">二極體</text>
+        <text x="268" y="40" font-size="13" font-weight="700" fill="var(--ink)" id="rTopR">VDD</text>
+        <text x="268" y="246" font-size="13" font-weight="700" fill="var(--ink)" id="rBotR">GND</text>
+        <path id="icCur" class="cur" d="M 318 228 L 318 44" hidden/>
+        <text x="330" y="200" text-anchor="middle" font-size="13" font-weight="700" id="icState" fill="var(--ok)">不導通，晶片正常工作</text>
+      </svg>
+    </div>
+    <div class="panel">
+      <h3>會不會燒掉，要看電源能給多少電流</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>接在哪裡接反</th><th>結果</th></tr></thead>
+        <tbody>
+          <tr><td>測試治具（Leonardo USB，有 500mA 保險絲）</td><td><span class="pill warn">通常救得回來</span>電流被限制，又分散到 30 顆燈；及時拔掉多半沒事。最靠近接頭的第 1 顆最容易受傷。</td></tr>
+          <tr><td>沒有保險絲的相容板</td><td><span class="pill danger">有風險</span>電流沒被限制，靠近接頭的燈珠可能燒掉。</td></tr>
+          <tr><td>無人機電池或飛控 5V</td><td><span class="pill danger">很可能燒毀</span>電流可以到好幾安培，晶片幾秒內就過熱。</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note"><b>所以：</b>每條燈條的 JST 腳位順序都要一致。在測試台插上去是正常的，裝到飛機上才不會接反。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 治具 -->
+<section class="station" id="jig">
+  <div class="station-head">
+    <span class="tag">STATION 6・老師做一次</span>
+    <h2>測試治具接線</h2>
+    <p>用 Leonardo 加一顆 220Ω 電阻（紅紅棕金）就夠了。學生的操作不變，焊錯也不會燒壞 Arduino。</p>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="wiring" role="img" aria-label="Leonardo 5V 接 JST 紅線，GND 接黑線，D6 經過 220 歐姆電阻接黃線">
+        <div class="wrow"><div class="pin">5V</div><div class="wire" style="background:var(--wire-v)"></div><div class="jst" style="border-color:var(--wire-v)">紅線 V</div></div>
+        <div class="wrow"><div class="pin">GND</div><div class="wire" style="background:var(--wire-g)"></div><div class="jst" style="border-color:var(--wire-g)">黑線 G</div></div>
+        <div class="wrow"><div class="pin">D6</div><div class="wire" style="background:var(--wire-s)"><span class="res">220Ω</span></div><div class="jst" style="border-color:var(--wire-s)">黃線 S</div></div>
+        <div class="wrow"><div class="pin" style="border-style:dashed">A0</div><div class="wire" style="background:repeating-linear-gradient(90deg,var(--muted) 0 8px,transparent 8px 14px)"></div><div class="jst" style="border-style:dashed;border-color:var(--muted);color:var(--muted)">預留給 v4</div></div>
+      </div>
+      <p class="note"><b>照線色接，不要照位置接。</b>我們的 JST 接頭線序是紅、黑、黃，中間那支腳是<b>黑線 GND</b>。電阻要串在黃線（訊號）上，串到中間會串錯。</p>
+      <p class="hint">做好後用三用電表確認：JST 黃線那支腳量到 D6 約 220Ω，紅線通 5V，黑線通 GND。電阻兩端套熱縮管。</p>
+    </div>
+    <div class="panel">
+      <h3>供電與保護</h3>
+      <div class="tbl-wrap"><table>
+        <tbody>
+          <tr><td>V（電源線）</td><td>不能串電阻，燈條會沒電。改靠<b>正版 Leonardo USB 上的 500mA 自恢復保險絲</b>。相容板要看 USB 接頭旁有沒有標 F1 的小零件。</td></tr>
+          <tr><td>S（訊號線）</td><td>串 220Ω，短路時電流約 20mA，D6 安全。</td></tr>
+          <tr><td>電腦 USB</td><td>可以。V–G 短路時會聽到 USB「叮咚」斷線聲。</td></tr>
+          <tr><td>USB 充電頭</td><td>可以，5V 1A 以上。快充頭也沒問題（Arduino 不會協商升壓）。</td></tr>
+          <tr><td>行動電源</td><td>不建議。電流太小會自動關機，測到一半斷電。</td></tr>
+          <tr><td>DC 頭／VIN</td><td>不要用，電流不會經過那顆保險絲。</td></tr>
+        </tbody>
+      </table></div>
+      <h3>用充電頭時，看板子的燈判斷</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>看到的</th><th>代表什麼</th></tr></thead>
+        <tbody>
+          <tr><td>一接上燈條，ON 燈就熄滅</td><td>V–G 短路。拔掉燈條等幾十秒會恢復</td></tr>
+          <tr><td>L 燈每輪開頭亮 2 秒</td><td>程式正常在跑</td></tr>
+          <tr><td>L 燈亂閃，測到一半重來</td><td>供電不穩：接觸不良、部分短路或充電頭太弱</td></tr>
+          <tr><td>兩顆燈都正常，燈條全暗</td><td>S 有問題，或焊到出口端</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- 加工圖 -->
+<section class="station" id="build">
+  <div class="station-head">
+    <span class="tag">STATION 6B・加工圖</span>
+    <h2>治具線怎麼做</h2>
+    <p>一頭是 3 條杜邦線公頭，插在 Leonardo 上；另一頭是 JST 3P 接頭，插學生的燈條。只有黃線（訊號）中間串一顆 220Ω 電阻。</p>
+  </div>
+
+  <div class="panel">
+    <h3>完成圖</h3>
+    <div class="tbl-wrap">
+    <svg viewBox="0 0 900 400" style="width:100%;min-width:640px;height:auto;display:block" role="img" aria-label="治具線加工圖：左邊三條杜邦公頭標示 5V、GND、D6，各約 10 公分接到中間接點；紅線、黑線直接焊接，黃線中間串 220 歐姆電阻，接點套熱縮管；右邊約 10 公分接到 JST 3P 接頭，線序紅、黑、黃。另有虛線 A0 分支為選配。">
+      <!-- dimension lines -->
+      <g stroke="var(--muted)" stroke-width="1.5" fill="var(--muted)" font-size="13" font-weight="700">
+        <line x1="96" y1="36" x2="360" y2="36"/><line x1="96" y1="28" x2="96" y2="44"/><line x1="360" y1="28" x2="360" y2="44"/>
+        <text x="228" y="28" text-anchor="middle" stroke="none">約 10 cm</text>
+        <line x1="520" y1="36" x2="760" y2="36"/><line x1="520" y1="28" x2="520" y2="44"/><line x1="760" y1="28" x2="760" y2="44"/>
+        <text x="640" y="28" text-anchor="middle" stroke="none">約 10 cm</text>
+      </g>
+      <!-- outer heat shrink -->
+      <rect x="340" y="62" width="190" height="236" rx="10" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="6 5"/>
+      <text x="435" y="318" text-anchor="middle" font-size="12" fill="var(--muted)">外層大熱縮管（選配：把三條束在一起）</text>
+
+      <!-- wires -->
+      <line x1="96" y1="96" x2="760" y2="96" stroke="var(--wire-v)" stroke-width="5"/>
+      <line x1="96" y1="180" x2="760" y2="180" stroke="var(--wire-g)" stroke-width="5"/>
+      <line x1="96" y1="264" x2="380" y2="264" stroke="var(--wire-s)" stroke-width="5"/>
+      <line x1="380" y1="264" x2="400" y2="264" stroke="var(--muted)" stroke-width="3"/>
+      <line x1="460" y1="264" x2="480" y2="264" stroke="var(--muted)" stroke-width="3"/>
+      <line x1="480" y1="264" x2="760" y2="264" stroke="var(--wire-s)" stroke-width="5"/>
+      <!-- optional A0 branch -->
+      <path d="M 500 264 L 500 356 L 96 356" stroke="var(--muted)" stroke-width="3" fill="none" stroke-dasharray="7 6"/>
+      <circle cx="500" cy="264" r="5" fill="var(--muted)"/>
+
+      <!-- splice heat shrinks -->
+      <rect x="400" y="86" width="60" height="20" rx="4" fill="var(--sunk)" stroke="var(--muted)" opacity=".9"/>
+      <circle cx="430" cy="96" r="5" fill="var(--solder)" stroke="var(--muted)"/>
+      <rect x="400" y="170" width="60" height="20" rx="4" fill="var(--sunk)" stroke="var(--muted)" opacity=".9"/>
+      <circle cx="430" cy="180" r="5" fill="var(--solder)" stroke="var(--muted)"/>
+      <!-- resistor -->
+      <rect x="400" y="254" width="60" height="20" rx="8" fill="#d9c49a" stroke="#8a7a55"/>
+      <rect x="410" y="254" width="6" height="20" fill="#c62828"/>
+      <rect x="421" y="254" width="6" height="20" fill="#c62828"/>
+      <rect x="432" y="254" width="6" height="20" fill="#6d3b1f"/>
+      <rect x="447" y="254" width="5" height="20" fill="#b8962e"/>
+      <rect x="372" y="248" width="116" height="32" rx="6" fill="none" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="430" y="234" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">220Ω（紅紅棕金）</text>
+      <text x="430" y="298" text-anchor="middle" font-size="12" fill="var(--muted)">外面套 2mm 熱縮管</text>
+      <text x="430" y="126" text-anchor="middle" font-size="12" fill="var(--muted)">焊點＋熱縮管</text>
+      <text x="430" y="210" text-anchor="middle" font-size="12" fill="var(--muted)">焊點＋熱縮管</text>
+
+      <!-- dupont housings -->
+      <g font-family="JetBrains Mono, monospace" font-size="14" font-weight="700">
+        <line x1="34" y1="96" x2="56" y2="96" stroke="var(--muted)" stroke-width="3"/>
+        <rect x="56" y="84" width="40" height="24" rx="3" fill="var(--wire-g)"/>
+        <text x="20" y="76" fill="var(--wire-v)">5V</text>
+        <line x1="34" y1="180" x2="56" y2="180" stroke="var(--muted)" stroke-width="3"/>
+        <rect x="56" y="168" width="40" height="24" rx="3" fill="var(--wire-g)"/>
+        <text x="20" y="160" fill="var(--ink)">GND</text>
+        <line x1="34" y1="264" x2="56" y2="264" stroke="var(--muted)" stroke-width="3"/>
+        <rect x="56" y="252" width="40" height="24" rx="3" fill="var(--wire-g)"/>
+        <text x="20" y="244" fill="#8a6a00">D6</text>
+        <line x1="34" y1="356" x2="56" y2="356" stroke="var(--muted)" stroke-width="3"/>
+        <rect x="56" y="344" width="40" height="24" rx="3" fill="none" stroke="var(--muted)" stroke-dasharray="4 3"/>
+        <text x="20" y="336" fill="var(--muted)">A0（選配，給 v4）</text>
+      </g>
+      <text x="76" y="388" text-anchor="middle" font-size="12" fill="var(--muted)">杜邦公頭 → 插 Leonardo</text>
+
+      <!-- JST -->
+      <rect x="760" y="70" width="64" height="220" rx="8" fill="var(--surface)" stroke="var(--ink)" stroke-width="2.5"/>
+      <g font-size="13" font-weight="700" fill="var(--ink)">
+        <text x="836" y="101">紅 V</text>
+        <text x="836" y="185">黑 G</text>
+        <text x="836" y="269">黃 S</text>
+      </g>
+      <text x="792" y="318" text-anchor="middle" font-size="12" fill="var(--muted)">JST 3P</text>
+      <text x="792" y="334" text-anchor="middle" font-size="12" fill="var(--muted)">插學生燈條</text>
+    </svg>
+    </div>
+    <p class="hint">杜邦頭上貼小標籤寫 5V／GND／D6。杜邦線顏色不一定對得上，以標籤為準。</p>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>插在 Leonardo 的哪裡</h3>
+      <div class="tbl-wrap">
+      <svg viewBox="0 0 520 250" style="width:100%;min-width:420px;height:auto;display:block" role="img" aria-label="Leonardo 腳位圖：上排數位腳 7 到 0，D6 標示；下排電源腳 IOREF、RESET、3.3V、5V、GND、GND、VIN，5V 與 GND 標示；類比腳 A0 到 A5，A0 為選配。">
+        <rect x="10" y="20" width="500" height="210" rx="12" fill="var(--mask-soft)" stroke="var(--mask)" stroke-width="2"/>
+        <rect x="10" y="80" width="46" height="60" rx="4" fill="var(--muted)"/>
+        <text x="33" y="160" text-anchor="middle" font-size="11" fill="var(--muted)">USB</text>
+        <text x="260" y="128" text-anchor="middle" font-size="18" font-weight="900" fill="var(--mask)">Leonardo</text>
+        <g font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" text-anchor="middle">
+          <!-- digital 7..0 -->
+          <g id="dig"></g>
+          <!-- power + analog -->
+          <g id="pwr"></g>
+        </g>
+        <text x="380" y="78" text-anchor="middle" font-size="11" fill="var(--muted)">數位腳</text>
+        <text x="190" y="196" text-anchor="middle" font-size="11" fill="var(--muted)">電源腳</text>
+        <text x="415" y="196" text-anchor="middle" font-size="11" fill="var(--muted)">類比腳</text>
+      </svg>
+      </div>
+      <p class="hint">5V 和 GND 在下排電源腳（GND 有兩支，插哪支都可以），D6 在上排數位腳。三條是分開插的。</p>
+    </div>
+    <div class="panel">
+      <h3>材料</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>材料</th><th>數量</th><th>說明</th></tr></thead>
+        <tbody>
+          <tr><td>JST 3P 對接線</td><td>1 條</td><td>要能插進學生燈條的接頭，線序紅、黑、黃</td></tr>
+          <tr><td>杜邦線（公頭）</td><td>3 條</td><td>做 v4 的話多 1 條給 A0</td></tr>
+          <tr><td>220Ω 電阻</td><td>1 顆</td><td>紅紅棕金，1/4W</td></tr>
+          <tr><td>熱縮管 2mm</td><td>3 段</td><td>每段約 2 cm；電阻那段約 3 cm</td></tr>
+          <tr><td>熱縮管 5～6mm</td><td>1 段</td><td>選配，約 4 cm，把三條束起來</td></tr>
+          <tr><td>小標籤</td><td>3 張</td><td>5V／GND／D6</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="tips">
+    <div class="tip"><span class="order">步驟 1</span><span class="k">剪線、剝線</span><p>JST 線留約 10 cm，杜邦線剪掉一頭也留約 10 cm。線頭剝 5mm，先上錫。</p></div>
+    <div class="tip"><span class="order">步驟 2</span><span class="k">先套熱縮管！</span><p>焊之前就把 2mm 熱縮管套進線裡（選配的大熱縮管也先套）。焊完才發現忘了套，就得剪掉重來，這是最常犯的錯。</p></div>
+    <div class="tip"><span class="order">步驟 3</span><span class="k">焊紅線、黑線</span><p>JST 紅線接 5V 那條杜邦，JST 黑線接 GND 那條。兩條線頭並排或互鉤後再焊。</p></div>
+    <div class="tip"><span class="order">步驟 4</span><span class="k">黃線串電阻</span><p>電阻兩腳各剪到約 8mm、彎成鉤：一頭接 D6 杜邦線，一頭接 JST 黃線。電阻沒有正負，哪頭都可以。做 v4 的話，A0 線一起焊在電阻靠 JST 那一頭。</p></div>
+    <div class="tip"><span class="order">步驟 5</span><span class="k">熱縮、貼標籤</span><p>把熱縮管推到焊點上吹熱，電阻要整顆包住。杜邦頭貼上 5V／GND／D6。</p></div>
+    <div class="tip"><span class="order">步驟 6</span><span class="k">用電表驗收</span><p>照下表量一次，全部對才能用。最後插上一條好的燈條跑 v3 確認。</p></div>
+  </div>
+
+  <div class="panel">
+    <h3>驗收：三用電表量這些</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>量哪兩點</th><th>應該讀到</th><th>不對的話</th></tr></thead>
+      <tbody>
+        <tr><td>JST 紅 ↔ 杜邦 5V</td><td>約 0Ω（嗶）</td><td>焊點沒焊上，或接錯線</td></tr>
+        <tr><td>JST 黑 ↔ 杜邦 GND</td><td>約 0Ω（嗶）</td><td>同上</td></tr>
+        <tr><td>JST 黃 ↔ 杜邦 D6</td><td><b>約 220Ω</b>（不會嗶）</td><td>讀到 0Ω：電阻被跳過；讀到 OL：電阻沒焊上</td></tr>
+        <tr><td>JST 紅↔黑、紅↔黃、黑↔黃</td><td>OL</td><td>治具線自己短路，拆開熱縮管檢查</td></tr>
+        <tr><td>插上一條好燈條，從燈條焊點量回杜邦頭</td><td>V↔5V、G↔GND 約 0Ω，S↔D6 約 220Ω</td><td>JST 對接時線序交叉了（有些現成對接線兩端顏色不對應）</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- 程式 -->
+<section class="station" id="log">
+  <div class="station-head">
+    <span class="tag">STATION 7・程式</span>
+    <h2>LEDv3 測試程式</h2>
+    <p>測試治具用的 Arduino 程式。燒進 Leonardo 一次，之後插上燈條就會自動跑測試。</p>
+  </div>
+  <div class="grid2">
+<div class="panel">
+      <h3>LEDv3 程式</h3>
+      <p class="hint">Arduino IDE 需先安裝 Adafruit NeoPixel 函式庫。Uno、Nano、Leonardo 都可以用。</p>
+      <div class="row"><button class="btn" type="button" id="copyBtn">複製程式</button><span id="copyMsg" class="hint" aria-live="polite"></span></div>
+      <details>
+        <summary>展開程式碼</summary>
+<pre><code id="code">#include &lt;Adafruit_NeoPixel.h&gt;
+
+// 足球無人機 LED 燈條測試器 v3（三色分段＋跑馬燈）
+// 把第 1、2、3 段看到的顏色照順序念出來 = 燈條色序
+//   綠 紅 藍 → GRB（原廠）；紅 綠 藍 → RGB（副廠）
+
+#define LED_PIN     6
+#define NUM_LEDS    30
+#define BRIGHTNESS  40
+#define COLOR_MS    2000
+#define GAP_MS      400
+#define CHASE_MS    60
+#define LOOP_GAP_MS 1000
+
+// 刻意用 NEO_RGB：參數照順序原樣送出，第幾段 = 第幾個位元組
+Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_RGB + NEO_KHZ800);
+
+void fillAll(uint8_t a, uint8_t b, uint8_t c) {
+  for (int i = 0; i &lt; NUM_LEDS; i++) strip.setPixelColor(i, a, b, c);
+  strip.show();
+}
+
+void blank(int ms) {
+  strip.clear();
+  strip.show();
+  delay(ms);
+}
+
+void showStep(const char* label, uint8_t a, uint8_t b, uint8_t c) {
+  Serial.println(label);
+  fillAll(a, b, c);
+  delay(COLOR_MS);
+  blank(GAP_MS);
+}
+
+void chase() {
+  Serial.println("跑馬燈：白燈從第 1 顆跑到最後一顆");
+  for (int i = 0; i &lt; NUM_LEDS; i++) {
+    strip.clear();
+    strip.setPixelColor(i, 255, 255, 255);
+    strip.show();
+    delay(CHASE_MS);
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  strip.begin();
+  strip.setBrightness(BRIGHTNESS);
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);                 // L 燈亮 = 一輪的開頭
+  showStep("第 1 段：只送第 1 個位元組", 255, 0, 0);
+  digitalWrite(LED_BUILTIN, LOW);
+  showStep("第 2 段：只送第 2 個位元組", 0, 255, 0);
+  showStep("第 3 段：只送第 3 個位元組", 0, 0, 255);
+  showStep("第 4 段：全白（三色同時亮）", 255, 255, 255);
+  chase();
+  blank(LOOP_GAP_MS);
+}</code></pre>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer>中正國中創客社・足球無人機環燈測試。數值為一般 ATmega 板子的典型值，實際以零件規格為準。</footer>
+</main>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+/* ---------- 三嗶檢查 ---------- */
+let stripState = {};
+let measured = {};
+function newStrip(){
+  const r = Math.random();
+  stripState = {VG:false, SG:false, SV:false};
+  if (r < 0.45) { /* 好燈條 */ }
+  else { const k = ['VG','SG','SV'][Math.floor(Math.random()*3)]; stripState[k] = true; if (Math.random()<0.2){ const k2=['VG','SG','SV'][Math.floor(Math.random()*3)]; stripState[k2]=true; } }
+  measured = {};
+  $('#meterScreen').textContent = '----'; $('#meterScreen').classList.remove('beep');
+  $('#meterText').textContent = '選一組焊點，把探棒碰上去。';
+  $('#beepFeedback').textContent = '新的燈條來了。三組都量過再下判斷。';
+}
+let audioCtx = null, beepTimer = null;
+function tone(ms){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 2700; o.type = 'square'; g.gain.value = 0.04;
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + ms/1000);
+  }catch(e){}
+}
+function measure(pair){
+  measured[pair] = true;
+  const scr = $('#meterScreen'), txt = $('#meterText');
+  clearTimeout(beepTimer); scr.classList.remove('beep');
+  const names = {VG:'V ↔ G', SG:'S ↔ G', SV:'S ↔ V'};
+  if (stripState[pair]){
+    scr.textContent = '0.3Ω'; scr.classList.add('beep'); tone(1200);
+    txt.textContent = names[pair] + '：嗶～～～一直叫。';
+    beepTimer = setTimeout(()=>scr.classList.remove('beep'), 1200);
+  } else if (pair === 'VG'){
+    scr.textContent = '12Ω'; scr.classList.add('beep'); tone(150);
+    txt.textContent = names[pair] + '：嗶一下就停了。';
+    beepTimer = setTimeout(()=>{ scr.classList.remove('beep'); scr.textContent = 'OL'; }, 300);
+  } else {
+    scr.textContent = 'OL';
+    txt.textContent = names[pair] + '：沒有聲音。';
+  }
+}
+['VG','SG','SV'].forEach(p => $('#m-'+p).addEventListener('click', ()=>measure(p)));
+function judge(sayOk){
+  const n = Object.keys(measured).length;
+  const bad = ['VG','SG','SV'].filter(k=>stripState[k]);
+  const names = {VG:'V↔G', SG:'S↔G', SV:'S↔V'};
+  let msg;
+  if (n < 3) msg = '還有焊點沒量（量了 ' + n + ' 組）。三組都量過再判斷。';
+  else if (sayOk && bad.length===0) msg = '答對了！三組都沒有一直嗶，可以插上治具通電。';
+  else if (!sayOk && bad.length>0) msg = '答對了！' + bad.map(k=>names[k]).join('、') + ' 短路，要清錫重焊。';
+  else if (sayOk) msg = '再想想：' + bad.map(k=>names[k]).join('、') + ' 一直嗶，這是短路，不能通電。';
+  else msg = '其實這條沒問題：V↔G 嗶一下就停是電容在充電，不是短路。';
+  $('#beepFeedback').textContent = msg;
+}
+$('#judgeOk').addEventListener('click', ()=>judge(true));
+$('#judgeFix').addEventListener('click', ()=>judge(false));
+$('#newStrip').addEventListener('click', newStrip);
+newStrip();
+
+/* ---------- 短路模擬 ---------- */
+const S = {VG:false, SG:false, SV:false, rev:false, res:true, supply:'fuse'};
+function toggleBridge(k){ S[k] = !S[k]; renderShort(); }
+['VG','SG','SV'].forEach(k=>{
+  const g = $('#b-'+k);
+  g.addEventListener('click', ()=>toggleBridge(k));
+  g.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleBridge(k);} });
+});
+$$('[data-bridge]').forEach(b=>b.addEventListener('click', ()=>toggleBridge(b.dataset.bridge)));
+$('#revBtn').addEventListener('click', ()=>{ S.rev=!S.rev; renderShort(); });
+$('#resBtn').addEventListener('click', ()=>{ S.res=!S.res; renderShort(); });
+$$('[data-supply]').forEach(b=>b.addEventListener('click', ()=>{ S.supply=b.dataset.supply; renderShort(); }));
+const LV = {ok:0, warn:1, danger:2};
+function renderShort(){
+  ['VG','SG','SV'].forEach(k=>{
+    $('#b-'+k).classList.toggle('on', S[k]);
+    $('#b-'+k).setAttribute('aria-pressed', S[k]);
+    $('[data-bridge="'+k+'"]').setAttribute('aria-pressed', S[k]);
+  });
+  $('#revBtn').setAttribute('aria-pressed', S.rev);
+  $('#resBtn').setAttribute('aria-pressed', S.res);
+  $('#resBtn').textContent = S.res ? 'S 線串 220Ω 電阻' : 'S 線沒有電阻';
+  $$('[data-supply]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.supply===S.supply));
+  $('#lblV').textContent = S.rev ? 'V −' : 'V +';
+  $('#lblG').textContent = S.rev ? 'G +' : 'G −';
+
+  const sig = S.SG || S.SV, pwr = S.VG || S.rev;
+  const isBat = S.supply==='battery';
+  const out = [];
+  // 訊號腳
+  const pinName = isBat ? '訊號腳（飛控的 LED 腳）' : '訊號腳（Arduino D6）';
+  if (!sig) out.push({t:pinName, l:'ok', p:'幾乎沒有電流，正常送資料。'});
+  else if (S.res) out.push({t:pinName, l:'ok', p:'電流被 220Ω 限制在約 20mA（5V ÷ 約 245Ω），低於每支腳 40mA 的上限。'});
+  else out.push({t:pinName, l:'danger', p:'沒有電阻，電流可能衝到 80mA 以上，超過每支腳 40mA 的上限。短路久了這支腳會壞，其他腳通常還正常。'});
+  // 電源
+  if (!pwr) out.push({t:'電源', l:'ok', p:'正常供電。'});
+  else if (S.supply==='fuse') out.push({t:'電源', l:'warn', p:'板子上的 500mA 自恢復保險絲發熱跳脫，板子斷電。拔掉燈條、等幾十秒會自己恢復。'});
+  else if (S.supply==='nofuse') out.push({t:'電源', l:'danger', p:'相容板常常沒有保險絲，電流可能超過 1A：可能燒掉板子上的二極體，或讓電腦 USB 埠斷電保護。'});
+  else out.push({t:'電源', l:'danger', p:'電池能給好幾安培，焊點和線會發燙，甚至冒煙。這是最危險的情況。'});
+  // 燈條
+  if (S.rev){
+    if (S.supply==='fuse') out.push({t:'燈條', l:'warn', p:'燈珠晶片裡的保護二極體被順向導通，電流穿過晶片。有保險絲限流，及時拔掉通常救得回來；最靠近接頭的第 1 顆最容易受傷。'});
+    else if (S.supply==='nofuse') out.push({t:'燈條', l:'danger', p:'電流沒被限制，靠近接頭的燈珠可能燒掉。'});
+    else out.push({t:'燈條', l:'danger', p:'電流可到好幾安培，晶片幾秒內就過熱燒毀。'});
+  } else if (S.VG) out.push({t:'燈條', l:'warn', p:'沒有電，整條不亮。燈條本身通常沒事，問題在焊點。'});
+  else if (sig) out.push({t:'燈條', l:'warn', p:'收不到資料，整條不亮或亂閃。燈條本身沒事，把連錫清掉就好。'});
+  else out.push({t:'燈條', l:'ok', p:'正常：照 v3 程式輪流亮三色和跑馬燈。'});
+
+  const worst = out.reduce((m,o)=>Math.max(m, LV[o.l]), 0);
+  const v = $('#verdict');
+  v.className = 'verdict ' + ['ok','warn','danger'][worst];
+  v.textContent = ['一切正常，沒有東西會壞','不會燒壞東西，但要處理','有零件可能燒壞'][worst];
+  const pillTxt = {ok:'安全', warn:'注意', danger:'危險'};
+  $('#results').innerHTML = out.map(o=>'<div class="result"><span class="t"><span class="pill '+o.l+'">'+pillTxt[o.l]+'</span>'+o.t+'</span><p>'+o.p+'</p></div>').join('');
+
+  const obs = [];
+  if (pwr){
+    if (S.supply==='fuse') obs.push('板子的 ON 燈熄滅；接電腦的話會聽到 USB「叮咚」斷線聲。');
+    else if (S.supply==='nofuse') obs.push('板子沒反應或一直重開機，電腦可能跳出 USB 錯誤。');
+    else obs.push('焊點冒煙、有焦味，要馬上拔掉電池。');
+  } else if (sig) obs.push('ON 燈、L 燈都正常，但燈條全暗或亂閃。');
+  else obs.push('ON 燈亮著，L 燈每輪開頭亮 2 秒，燈條照順序亮。');
+  $('#observe').textContent = obs.join(' ');
+}
+renderShort();
+
+/* ---------- v3 環燈 ---------- */
+const N = 30, ring = $('#ring');
+const ns = 'http://www.w3.org/2000/svg';
+const cx = 180, cy = 180, R = 128;
+function el(tag, attrs){ const e = document.createElementNS(ns, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+ring.appendChild(el('circle',{cx,cy,r:R,fill:'none',stroke:'var(--tape-edge)','stroke-width':34}));
+ring.appendChild(el('circle',{cx,cy,r:R,fill:'none',stroke:'var(--tape)','stroke-width':30}));
+const glows = [], dots = [];
+for (let i=0;i<N;i++){
+  const a = -Math.PI/2 + i*2*Math.PI/N;
+  const x = cx + R*Math.cos(a), y = cy + R*Math.sin(a);
+  const gl = el('circle',{cx:x,cy:y,r:16,fill:'transparent',opacity:.45});
+  const d = el('rect',{x:x-8,y:y-8,width:16,height:16,rx:3,fill:'var(--led-off)',stroke:'var(--led-off-edge)','stroke-width':1});
+  ring.appendChild(gl); ring.appendChild(d); glows.push(gl); dots.push(d);
+  if (i===0 || (i+1)%5===0){
+    const lx = cx + (R-36)*Math.cos(a), ly = cy + (R-36)*Math.sin(a) + 4;
+    const t = el('text',{x:lx,y:ly,'text-anchor':'middle','font-size':12,'font-weight':700,fill:'var(--muted)','font-family':'JetBrains Mono, monospace'});
+    t.textContent = i+1; ring.appendChild(t);
+  }
+}
+const din = el('text',{x:cx,y:22,'text-anchor':'middle','font-size':12,'font-weight':700,fill:'var(--mask)'}); din.textContent = 'DIN 從這裡進 ↓'; ring.appendChild(din);
+const centerT = el('text',{x:cx,y:cy+6,'text-anchor':'middle','font-size':16,'font-weight':700,fill:'var(--muted)'}); centerT.textContent = '環燈 30 顆'; ring.appendChild(centerT);
+
+let cfg = {order:'GRB', fault:'none', n:8};
+let quiz = null;
+const CH = {R:0,G:1,B:2};
+function rgbFromBytes(order, bytes){ const c=[0,0,0]; for(let k=0;k<3;k++) c[CH[order[k]]] = bytes[k]; return c; }
+function altOrder(o){ return o==='GRB' ? 'RGB' : 'GRB'; }
+function computeFrame(frame, c){
+  const out = [];
+  if (frame.kind==='off' || c.fault==='nodata'){ for(let i=0;i<N;i++) out.push([0,0,0]); return out; }
+  if (c.fault==='rgbw'){
+    const stream = [];
+    for (let i=0;i<N;i++){ const b = frame.kind==='fill' ? frame.bytes : (i===frame.i ? [255,255,255] : [0,0,0]); stream.push(b[0],b[1],b[2]); }
+    for (let i=0;i<N;i++){
+      if (4*i+3 >= stream.length){ out.push([0,0,0]); continue; }
+      const g=stream[4*i], r=stream[4*i+1], b=stream[4*i+2], w=stream[4*i+3];
+      out.push([Math.min(255,r+w), Math.min(255,g+w), Math.min(255,b+w)]);
+    }
+    return out;
+  }
+  for (let i=0;i<N;i++){
+    let col;
+    if (frame.kind==='fill'){
+      const o = (c.fault==='mixed' && i===c.n-1) ? altOrder(c.order) : c.order;
+      col = rgbFromBytes(o, frame.bytes);
+    } else col = (i===frame.i) ? [255,255,255] : [0,0,0];
+    if (i===c.n-1){ if(c.fault==='deadR') col[0]=0; if(c.fault==='deadG') col[1]=0; if(c.fault==='deadB') col[2]=0; }
+    if (c.fault==='break' && i > c.n-1) col=[0,0,0];
+    out.push(col);
+  }
+  return out;
+}
+function paint(cols){
+  cols.forEach((c,i)=>{
+    const lit = c[0]+c[1]+c[2] > 0;
+    const css = 'rgb('+c[0]+','+c[1]+','+c[2]+')';
+    dots[i].setAttribute('fill', lit ? css : 'var(--led-off)');
+    dots[i].setAttribute('stroke', lit ? css : 'var(--led-off-edge)');
+    glows[i].setAttribute('fill', lit ? css : 'transparent');
+  });
+}
+const NAMES = {R:'紅', G:'綠', B:'藍'};
+function seenName(k, c){
+  if (c.fault==='nodata') return '不亮';
+  if (c.fault==='rgbw') return '亂';
+  return NAMES[c.order[k]];
+}
+function setSeen(k, c){
+  const s = $('#seen'+k);
+  if (k===null){ [0,1,2].forEach(j=>{ const e=$('#seen'+j); e.textContent='第 '+(j+1)+' 段'; e.style.borderStyle='dashed'; e.style.color=''; e.style.background=''; }); return; }
+  const name = seenName(k,c);
+  s.textContent = name; s.style.borderStyle='solid';
+  const map = {'紅':'#d93a2b','綠':'#1f9d55','藍':'#2563eb'};
+  if (map[name]){ s.style.background = map[name]; s.style.color = '#fff'; s.style.borderColor = map[name]; }
+  else { s.style.background=''; s.style.color=''; s.style.borderColor=''; }
+}
+const STEPS = [
+  {label:'第 1 段：只送第 1 個位元組', frame:{kind:'fill',bytes:[255,0,0]}, L:true, dur:2000, seen:0},
+  {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
+  {label:'第 2 段：只送第 2 個位元組', frame:{kind:'fill',bytes:[0,255,0]}, dur:2000, seen:1},
+  {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
+  {label:'第 3 段：只送第 3 個位元組', frame:{kind:'fill',bytes:[0,0,255]}, dur:2000, seen:2},
+  {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
+  {label:'第 4 段：全白（三色同時亮）', frame:{kind:'fill',bytes:[255,255,255]}, dur:2000},
+  {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
+  {label:'跑馬燈：白燈從第 1 顆跑到最後', chase:true},
+  {label:'一輪結束（全暗 1 秒）', frame:{kind:'off'}, dur:1000}
+];
+let runId = 0, playing = false;
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function activeCfg(){ return quiz || cfg; }
+async function play(){
+  const my = ++runId; playing = true; $('#playBtn').textContent = '❚❚ 暫停';
+  setSeen(null);
+  while (runId===my){
+    for (const st of STEPS){
+      if (runId!==my) return;
+      const c = activeCfg();
+      $('#stepLabel').textContent = st.label;
+      $('#ledL').classList.toggle('on', !!st.L);
+      if (st.chase){
+        for (let i=0;i<N;i++){ if(runId!==my) return; paint(computeFrame({kind:'chase',i}, activeCfg())); await sleep(90); }
+      } else {
+        paint(computeFrame(st.frame, c));
+        if (st.seen!==undefined) setSeen(st.seen, c);
+        await sleep(st.dur);
+      }
+    }
+  }
+}
+function stop(){ runId++; playing=false; $('#playBtn').textContent='▶ 播放'; $('#ledL').classList.remove('on'); $('#stepLabel').textContent='已暫停'; }
+$('#playBtn').addEventListener('click', ()=> playing ? stop() : play());
+
+function readCfg(){ cfg = {order:$('#orderSel').value, fault:$('#faultSel').value, n:+$('#nRange').value}; $('#nVal').textContent = cfg.n; }
+['#orderSel','#faultSel','#nRange'].forEach(s=>$(s).addEventListener('input', ()=>{ readCfg(); setSeen(null); $('#answer').hidden=true; }));
+readCfg();
+
+const FAULT_DESC = {
+  none:['沒有故障','每一段 30 顆都一樣顏色，跑馬燈順順跑完。'],
+  deadR:['第 {n} 顆紅色晶片壞','紅色那一段第 {n} 顆不亮，全白時它偏青色。'],
+  deadG:['第 {n} 顆綠色晶片壞','綠色那一段第 {n} 顆不亮，全白時它偏紫色。'],
+  deadB:['第 {n} 顆藍色晶片壞','藍色那一段第 {n} 顆不亮，全白時它偏黃色。'],
+  break:['第 {n} 顆後面的焊點斷','每一段都只亮到第 {n} 顆，跑馬燈也停在第 {n} 顆。'],
+  mixed:['第 {n} 顆混到不同色序的燈珠','前兩段第 {n} 顆跟大家顏色互換，全白時卻正常。'],
+  nodata:['S 沒焊上','整條都不亮，但板子的燈正常。也可能是 S 短路或焊到出口端。'],
+  rgbw:['其實是 RGBW 四色燈條','顏色一顆一顆亂跳，後面約 8 顆沒有資料。這支程式不適用。']
+};
+function showAnswer(c){
+  const [t, how] = FAULT_DESC[c.fault];
+  const f = s => s.replaceAll('{n}', c.n);
+  let orderTxt = c.order + '（第 1、2、3 段依序是' + NAMES[c.order[0]] + '、' + NAMES[c.order[1]] + '、' + NAMES[c.order[2]] + '）';
+  if (c.fault==='nodata' || c.fault==='rgbw') orderTxt = c.fault==='rgbw' ? '無法用這支程式判斷' : '看不出來（燈沒亮）';
+  const a = $('#answer');
+  a.innerHTML = '<div><b>色序：</b>' + orderTxt + '</div><div><b>故障：</b>' + f(t) + '</div><div class="hint">怎麼看出來：' + f(how) + '</div>';
+  a.hidden = false;
+}
+function newQuiz(){
+  const r = Math.random();
+  const order = r<0.45 ? 'GRB' : r<0.8 ? 'RGB' : ['BRG','RBG','GBR','BGR'][Math.floor(Math.random()*4)];
+  const faults = ['none','deadR','deadG','deadB','break','mixed','nodata','rgbw'];
+  const fault = faults[Math.floor(Math.random()*faults.length)];
+  quiz = {order, fault, n: 3 + Math.floor(Math.random()*25)};
+  $('#answer').hidden = true; setSeen(null);
+}
+$('#quizBtn').addEventListener('click', ()=>{ newQuiz(); $('#setupBox').hidden=true; $('#quizBox').hidden=false; if(!playing) play(); else { setSeen(null); } });
+$('#nextQuiz').addEventListener('click', ()=>{ newQuiz(); if(!playing) play(); });
+$('#revealBtn').addEventListener('click', ()=>{ if(quiz) showAnswer(quiz); });
+$('#exitQuiz').addEventListener('click', ()=>{ quiz=null; $('#setupBox').hidden=false; $('#quizBox').hidden=true; $('#answer').hidden=true; setSeen(null); });
+// 自己設定模式下，也可以看說明
+$('#faultSel').addEventListener('change', ()=>{ if(!quiz) showAnswer(cfg); });
+$('#orderSel').addEventListener('change', ()=>{ if(!quiz) showAnswer(cfg); });
+$('#nRange').addEventListener('change', ()=>{ if(!quiz) showAnswer(cfg); });
+paint(computeFrame({kind:'fill',bytes:[255,0,0]}, cfg));
+$('#stepLabel').textContent = '按「播放」開始（目前顯示第 1 段的畫面）';
+
+/* ---------- Leonardo 腳位圖 ---------- */
+(function(){
+  const NS = 'http://www.w3.org/2000/svg';
+  const mk = (tag, a, txt) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); if (txt) e.textContent = txt; return e; };
+  const pin = (g, x, y, label, hl, dashed) => {
+    g.appendChild(mk('rect', {x:x-15, y:y-12, width:30, height:24, rx:3,
+      fill: hl ? 'var(--copper)' : 'var(--surface)', stroke: hl ? 'var(--copper)' : 'var(--muted)',
+      'stroke-width': 1.5, 'stroke-dasharray': dashed ? '4 3' : 'none'}));
+    g.appendChild(mk('text', {x, y:y+4, fill: hl && !dashed ? '#fff' : 'var(--ink)'}, label));
+  };
+  const dig = document.getElementById('dig');
+  ['7','6','5','4','3','2','1','0'].forEach((p,i)=> pin(dig, 275 + i*30, 44, p, p==='6'));
+  const pwr = document.getElementById('pwr');
+  ['IO','RST','3V3','5V','GND','GND','VIN'].forEach((p,i)=> pin(pwr, 100 + i*30, 216, p, p==='5V' || (p==='GND' && i===4)));
+  ['A0','A1','A2','A3','A4','A5'].forEach((p,i)=> pin(pwr, 340 + i*30, 216, p, p==='A0', p==='A0'));
+})();
+
+/* ---------- 接反 ---------- */
+function setPol(rev){
+  $$('[data-pol]').forEach(b=>b.setAttribute('aria-pressed', (b.dataset.pol==='rev')===rev));
+  $('#rTopL').textContent = rev ? 'GND' : '+5V'; $('#rBotL').textContent = rev ? '+5V' : 'GND';
+  $('#rTopL').setAttribute('fill', rev ? 'var(--ink)' : 'var(--wire-v)'); $('#rBotL').setAttribute('fill', rev ? 'var(--wire-v)' : 'var(--ink)');
+  $('#rTopR').textContent = rev ? 'VDD（接到 GND）' : 'VDD'; $('#rBotR').textContent = rev ? 'GND（接到 5V）' : 'GND';
+  $('#ledCur').hidden = rev; $('#ledCur').setAttribute('class', rev ? '' : 'cur');
+  $('#ledCur').style.stroke = 'var(--ok)';
+  $('#ledState').textContent = rev ? '不亮，也不會壞' : '亮';
+  $('#ledState').setAttribute('fill', rev ? 'var(--muted)' : 'var(--ok)');
+  $('#icCur').hidden = !rev;
+  $('#icState').textContent = rev ? '二極體導通 → 大電流！' : '不導通，晶片正常工作';
+  $('#icState').setAttribute('fill', rev ? 'var(--danger)' : 'var(--ok)');
+}
+$$('[data-pol]').forEach(b=>b.addEventListener('click', ()=>setPol(b.dataset.pol==='rev')));
+setPol(false);
+
+/* ---------- 複製 ---------- */
+$('#copyBtn').addEventListener('click', ()=>{
+  const txt = $('#code').textContent;
+  const done = m => { $('#copyMsg').textContent = m; };
+  try{
+    navigator.clipboard.writeText(txt).then(()=>done('已複製'), ()=>{ selectCode(); done('請按 Ctrl+C 複製已選取的程式'); });
+  }catch(e){ selectCode(); done('請按 Ctrl+C 複製已選取的程式'); }
+});
+function selectCode(){ document.querySelector('details').open = true; const r=document.createRange(); r.selectNodeContents($('#code')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }
+})();
+</script>
+
+</body>
+</html>
