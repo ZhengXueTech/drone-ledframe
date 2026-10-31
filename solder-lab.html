@@ -357,8 +357,8 @@ a{color:var(--copper)}
 <section class="station" id="v3">
   <div class="station-head">
     <span class="tag">STATION 4・通電測試</span>
-    <h2>測試燈判讀（LEDv3 程式）</h2>
-    <p>程式每一輪會依序播放：第 1、2、3 段各只送一個位元組，接著全白，再跑一次跑馬燈。<b>把前三段看到的顏色照順序念出來，就是燈條的色序。</b>某顆燈和其他顆不一樣，那顆就是壞燈。</p>
+    <h2>測試燈判讀（LEDv3.2 程式）</h2>
+    <p>程式每一輪會依序播放：第 1、2、3 段各只送一個位元組，接著全白，再跑一次跑馬燈。<b>數開頭的白燈有幾顆，就是第幾段</b>（1 顆＝第 1 段、2 顆＝第 2 段、3 顆＝第 3 段）。<b>把前三段其他燈的顏色照順序念出來，就是燈條的色序。</b>某顆燈和其他顆不一樣，那顆就是壞燈。</p>
   </div>
   <div class="grid2">
     <div class="panel ring-wrap">
@@ -413,7 +413,7 @@ a{color:var(--copper)}
         </div>
       </div>
       <div style="display:grid;gap:6px">
-        <div class="group-label">前三段大部分的燈看起來是</div>
+        <div class="group-label">前三段白燈以外的燈看起來是</div>
         <div class="seen"><span id="seen0">第 1 段</span><span id="seen1">第 2 段</span><span id="seen2">第 3 段</span></div>
       </div>
       <div class="answer" id="answer" hidden></div>
@@ -655,7 +655,7 @@ a{color:var(--copper)}
     <div class="tip"><span class="order">步驟 3</span><span class="k">焊紅線、黑線</span><p>JST 紅線接 5V 那條杜邦，JST 黑線接 GND 那條。兩條線頭並排或互鉤後再焊。</p></div>
     <div class="tip"><span class="order">步驟 4</span><span class="k">黃線串電阻</span><p>電阻兩腳各剪到約 8mm、彎成鉤：一頭接 D6 杜邦線，一頭接 JST 黃線。電阻沒有正負，哪頭都可以。做 v4 的話，A0 線一起焊在電阻靠 JST 那一頭。</p></div>
     <div class="tip"><span class="order">步驟 5</span><span class="k">熱縮、貼標籤</span><p>把熱縮管推到焊點上吹熱，電阻要整顆包住。杜邦頭貼上 5V／GND／D6。</p></div>
-    <div class="tip"><span class="order">步驟 6</span><span class="k">用電表驗收</span><p>照下表量一次，全部對才能用。最後插上一條好的燈條跑 v3 確認。</p></div>
+    <div class="tip"><span class="order">步驟 6</span><span class="k">用電表驗收</span><p>照下表量一次，全部對才能用。最後插上一條好的燈條跑 v3.2 確認。</p></div>
   </div>
 
   <div class="panel">
@@ -677,20 +677,22 @@ a{color:var(--copper)}
 <section class="station" id="log">
   <div class="station-head">
     <span class="tag">STATION 7・程式</span>
-    <h2>LEDv3 測試程式</h2>
+    <h2>LEDv3.2 測試程式</h2>
     <p>測試治具用的 Arduino 程式。燒進 Leonardo 一次，之後插上燈條就會自動跑測試。</p>
   </div>
   <div class="grid2">
 <div class="panel">
-      <h3>LEDv3 程式</h3>
+      <h3>LEDv3.2 程式</h3>
       <p class="hint">Arduino IDE 需先安裝 Adafruit NeoPixel 函式庫。Uno、Nano、Leonardo 都可以用。</p>
       <div class="row"><button class="btn" type="button" id="copyBtn">複製程式</button><span id="copyMsg" class="hint" aria-live="polite"></span></div>
       <details>
         <summary>展開程式碼</summary>
 <pre><code id="code">#include &lt;Adafruit_NeoPixel.h&gt;
 
-// 足球無人機 LED 燈條測試器 v3（三色分段＋跑馬燈）
-// 把第 1、2、3 段看到的顏色照順序念出來 = 燈條色序
+// 足球無人機 LED 燈條測試器 v3.2（三色分段＋白燈數量指示＋跑馬燈）
+// 第 1 段：開頭亮 1 顆白燈；第 2 段：開頭亮 2 顆白燈；第 3 段：開頭亮 3 顆白燈
+//   → 數白燈有幾顆，就是第幾段（白色不管哪種色序看起來都是白的）
+// 把第 1、2、3 段「其他燈」看到的顏色照順序念出來 = 燈條色序
 //   綠 紅 藍 → GRB（原廠）；紅 綠 藍 → RGB（副廠）
 
 #define LED_PIN     6
@@ -704,20 +706,29 @@ a{color:var(--copper)}
 // 刻意用 NEO_RGB：參數照順序原樣送出，第幾段 = 第幾個位元組
 Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_RGB + NEO_KHZ800);
 
-void fillAll(uint8_t a, uint8_t b, uint8_t c) {
-  for (int i = 0; i &lt; NUM_LEDS; i++) strip.setPixelColor(i, a, b, c);
-  strip.show();
-}
-
 void blank(int ms) {
   strip.clear();
   strip.show();
   delay(ms);
 }
 
-void showStep(const char* label, uint8_t a, uint8_t b, uint8_t c) {
-  Serial.println(label);
-  fillAll(a, b, c);
+// 第 seg 段（1～3）：全部燈只送第 seg 個位元組，開頭 seg 顆改成白燈當指示
+void showStep(int seg) {
+  uint8_t a = (seg == 1) ? 255 : 0;
+  uint8_t b = (seg == 2) ? 255 : 0;
+  uint8_t c = (seg == 3) ? 255 : 0;
+  Serial.print("第 "); Serial.print(seg); Serial.println(" 段：開頭 " + String(seg) + " 顆白燈");
+  for (int i = 0; i &lt; NUM_LEDS; i++) strip.setPixelColor(i, a, b, c);
+  for (int i = 0; i &lt; seg; i++) strip.setPixelColor(i, 255, 255, 255);   // 指示燈：亮 seg 顆白燈
+  strip.show();
+  delay(COLOR_MS);
+  blank(GAP_MS);
+}
+
+void showWhite() {
+  Serial.println("第 4 段：全白（三色同時亮）");
+  for (int i = 0; i &lt; NUM_LEDS; i++) strip.setPixelColor(i, 255, 255, 255);
+  strip.show();
   delay(COLOR_MS);
   blank(GAP_MS);
 }
@@ -740,12 +751,12 @@ void setup() {
 }
 
 void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);                 // L 燈亮 = 一輪的開頭
-  showStep("第 1 段：只送第 1 個位元組", 255, 0, 0);
+  digitalWrite(LED_BUILTIN, HIGH);   // L 燈亮 = 一輪的開頭（保留）
+  showStep(1);
   digitalWrite(LED_BUILTIN, LOW);
-  showStep("第 2 段：只送第 2 個位元組", 0, 255, 0);
-  showStep("第 3 段：只送第 3 個位元組", 0, 0, 255);
-  showStep("第 4 段：全白（三色同時亮）", 255, 255, 255);
+  showStep(2);
+  showStep(3);
+  showWhite();
   chase();
   blank(LOOP_GAP_MS);
 }</code></pre>
@@ -866,7 +877,7 @@ function renderShort(){
     else out.push({t:'燈條', l:'danger', p:'電流可到好幾安培，晶片幾秒內就過熱燒毀。'});
   } else if (S.VG) out.push({t:'燈條', l:'warn', p:'沒有電，整條不亮。燈條本身通常沒事，問題在焊點。'});
   else if (sig) out.push({t:'燈條', l:'warn', p:'收不到資料，整條不亮或亂閃。燈條本身沒事，把連錫清掉就好。'});
-  else out.push({t:'燈條', l:'ok', p:'正常：照 v3 程式輪流亮三色和跑馬燈。'});
+  else out.push({t:'燈條', l:'ok', p:'正常：照 v3.2 程式輪流亮三色和跑馬燈。'});
 
   const worst = out.reduce((m,o)=>Math.max(m, LV[o.l]), 0);
   const v = $('#verdict');
@@ -919,7 +930,7 @@ function computeFrame(frame, c){
   if (frame.kind==='off' || c.fault==='nodata'){ for(let i=0;i<N;i++) out.push([0,0,0]); return out; }
   if (c.fault==='rgbw'){
     const stream = [];
-    for (let i=0;i<N;i++){ const b = frame.kind==='fill' ? frame.bytes : (i===frame.i ? [255,255,255] : [0,0,0]); stream.push(b[0],b[1],b[2]); }
+    for (let i=0;i<N;i++){ const b = frame.kind==='fill' ? (i < (frame.marks||0) ? [255,255,255] : frame.bytes) : (i===frame.i ? [255,255,255] : [0,0,0]); stream.push(b[0],b[1],b[2]); }
     for (let i=0;i<N;i++){
       if (4*i+3 >= stream.length){ out.push([0,0,0]); continue; }
       const g=stream[4*i], r=stream[4*i+1], b=stream[4*i+2], w=stream[4*i+3];
@@ -931,7 +942,7 @@ function computeFrame(frame, c){
     let col;
     if (frame.kind==='fill'){
       const o = (c.fault==='mixed' && i===c.n-1) ? altOrder(c.order) : c.order;
-      col = rgbFromBytes(o, frame.bytes);
+      col = rgbFromBytes(o, i < (frame.marks||0) ? [255,255,255] : frame.bytes);
     } else col = (i===frame.i) ? [255,255,255] : [0,0,0];
     if (i===c.n-1){ if(c.fault==='deadR') col[0]=0; if(c.fault==='deadG') col[1]=0; if(c.fault==='deadB') col[2]=0; }
     if (c.fault==='break' && i > c.n-1) col=[0,0,0];
@@ -944,7 +955,9 @@ function paint(cols){
     const lit = c[0]+c[1]+c[2] > 0;
     const css = 'rgb('+c[0]+','+c[1]+','+c[2]+')';
     dots[i].setAttribute('fill', lit ? css : 'var(--led-off)');
-    dots[i].setAttribute('stroke', lit ? css : 'var(--led-off-edge)');
+    const white = c[0]>200 && c[1]>200 && c[2]>200;   // 白燈在淺色燈條上看不清楚：加深色外框
+    dots[i].setAttribute('stroke', white ? 'var(--ink)' : (lit ? css : 'var(--led-off-edge)'));
+    dots[i].setAttribute('stroke-width', white ? 2.5 : 1);
     glows[i].setAttribute('fill', lit ? css : 'transparent');
   });
 }
@@ -964,11 +977,11 @@ function setSeen(k, c){
   else { s.style.background=''; s.style.color=''; s.style.borderColor=''; }
 }
 const STEPS = [
-  {label:'第 1 段：只送第 1 個位元組', frame:{kind:'fill',bytes:[255,0,0]}, L:true, dur:2000, seen:0},
+  {label:'第 1 段：開頭 1 顆白燈', frame:{kind:'fill',bytes:[255,0,0],marks:1}, L:true, dur:2000, seen:0},
   {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
-  {label:'第 2 段：只送第 2 個位元組', frame:{kind:'fill',bytes:[0,255,0]}, dur:2000, seen:1},
+  {label:'第 2 段：開頭 2 顆白燈', frame:{kind:'fill',bytes:[0,255,0],marks:2}, dur:2000, seen:1},
   {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
-  {label:'第 3 段：只送第 3 個位元組', frame:{kind:'fill',bytes:[0,0,255]}, dur:2000, seen:2},
+  {label:'第 3 段：開頭 3 顆白燈', frame:{kind:'fill',bytes:[0,0,255],marks:3}, dur:2000, seen:2},
   {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
   {label:'第 4 段：全白（三色同時亮）', frame:{kind:'fill',bytes:[255,255,255]}, dur:2000},
   {label:'換段（全暗）', frame:{kind:'off'}, dur:400},
