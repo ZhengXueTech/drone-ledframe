@@ -94,6 +94,13 @@ const ICONS = {
 };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 let DATA = null, tag = '全部';
+const EGG = 'lf_egg_skel';
+const eggOn = () => { try { return localStorage.getItem(EGG) === '1'; } catch (e) { return false; } };
+function applyEgg() { for (const t of (DATA && DATA.tools) || []) if (t.egg) t.hidden = !eggOn(); }
+function toast(msg) { let d = document.getElementById('eggToast'); if (!d) { d = document.createElement('div'); d.id = 'eggToast'; d.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#16202b;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:99;max-width:90vw;text-align:center'; document.body.appendChild(d); } d.textContent = msg; d.style.display = 'block'; clearTimeout(d._t); d._t = setTimeout(() => d.style.display = 'none', 3500); }
+(() => { let n = 0, t0 = 0; document.getElementById('title').addEventListener('click', () => { const now = Date.now(); n = now - t0 < 800 ? n + 1 : 1; t0 = now;
+  if (n >= 5) { n = 0; const on = !eggOn(); try { localStorage.setItem(EGG, on ? '1' : '0'); } catch (e) {} applyEgg(); render();
+    toast(on ? '已解鎖「骨架產生器（研究測試）」：示意與研究用，非原廠產品，列印後請依實機自行調整。再連點標題 5 下可關閉。' : '已關閉研究測試工具。'); } }); })();
 async function load() {
   try { const r = await fetch('tools.json', { cache: 'no-store' }); if (!r.ok) throw 0; DATA = await r.json(); }
   catch (e) { DATA = JSON.parse(document.getElementById('fallback').textContent); }
@@ -102,6 +109,7 @@ async function load() {
   document.getElementById('sub').textContent = s.subtitle || '';
   document.getElementById('org').textContent = s.org || '';
   const n = document.getElementById('notice'); if (s.notice) { n.textContent = s.notice; n.hidden = false; }
+  applyEgg();
   const tags = ['全部', ...new Set((DATA.tools || []).filter((t) => !t.hidden).flatMap((t) => t.tags || []))];
   const bar = document.getElementById('bar');
   tags.reverse().forEach((t) => { const b = document.createElement('button'); b.className = 'chip' + (t === tag ? ' on' : ''); b.textContent = t; b.onclick = () => { tag = t; bar.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b)); render(); }; bar.prepend(b); });
