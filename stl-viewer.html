@@ -52,6 +52,8 @@ section h2{font-size:12px;letter-spacing:.08em;color:var(--mute);margin:0 0 8px;
 .file.sel{border-color:var(--accent);background:var(--soft)}
 .file .sw{width:12px;height:12px;border-radius:3px;flex:none}
 .file .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file input[type=checkbox]{margin:0;accent-color:var(--accent)}
+.file button{font-size:12px}
 .file button{border:0;background:none;color:var(--mute);cursor:pointer;font:inherit;padding:0 4px}
 .file button:hover{color:var(--fg)}
 .empty{color:var(--mute);font-size:13px}
@@ -82,17 +84,17 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 <header>
   <a class="homeBtn" href="https://zhengxuetech.github.io/drone-ledframe/" title="回到燈框工具箱首頁">← 工具箱</a>
-  <h1>STL 檢視器<small>單位 mm</small></h1>
+  <h1>STL 檢視器<small>v1.1・單位 mm</small></h1>
   <div class="sp"></div>
-  <button class="btn pri" id="openBtn">開啟 STL 檔</button>
-  <input type="file" id="fileIn" accept=".stl,.zip" multiple hidden>
+  <button class="btn pri" id="openBtn">開啟檔案</button>
+  <input type="file" id="fileIn" accept=".stl,.zip,.3mf" multiple hidden>
 </header>
 <main>
   <div id="stage">
     <div id="views">
       <button class="btn" data-view="iso">等角</button><button class="btn" data-view="front">前</button><button class="btn" data-view="back">後</button><button class="btn" data-view="left">左</button><button class="btn" data-view="right">右</button><button class="btn" data-view="top">上</button><button class="btn" data-view="bottom">下（底面）</button>
     </div>
-    <div id="hint">左鍵拖曳旋轉　右鍵或兩指拖曳平移　滾輪或兩指縮放　可以直接把檔案拖進來</div>
+    <div id="hint">左鍵拖曳旋轉　右鍵或兩指拖曳平移　滾輪或兩指縮放　可以直接把 STL／3MF 拖進來</div>
     <div id="measureTag" hidden></div>
     <div id="drop">放開就開啟</div>
   </div>
@@ -100,7 +102,14 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <section>
       <h2>檔案</h2>
       <div class="files" id="files"></div>
-      <p class="note">支援 .stl（二進位或文字格式），也能直接開燈框設計器下載的 .zip。檔案只在這台電腦的瀏覽器裡讀，不會上傳。</p>
+      <p class="note">支援 .stl、.3mf（Bambu Studio／Orca 存的也可以）、燈框設計器下載的 .zip。打勾＝要印。好幾件合在一起的 STL 可以按「拆開」變成一件一件。檔案只在這台電腦的瀏覽器裡讀，不會上傳。</p>
+    </section>
+    <section>
+      <h2>排盤</h2>
+      <div class="row"><button class="btn pri" id="arrBtn">自動排盤</button><span class="note" id="arrNote" style="margin:0"></span></div>
+      <div class="row" style="margin-top:8px" id="dlRow"></div>
+      <p class="note">只排有打勾的。平台大小在下面「顯示」選。3MF 每件分開，Bambu Studio／Orca 打開就能切片；STL 會合成一個檔（STL 檢視器、任何切片軟體都能開）。</p>
+      <dl class="kv" style="margin-top:6px"><dt>打勾的合計重量</dt><dd><span class="big" id="wtAll">—</span><span class="unit">g</span></dd></dl>
     </section>
     <section>
       <h2 id="infoTitle">尺寸</h2>
@@ -252,7 +261,7 @@ async function inflate(u8, fmt) {
   const ds = new DecompressionStream(fmt);
   return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer());
 }
-async function unzip(buf) {
+async function unzip(buf, want = /\.stl$/i) {
   const u8 = new Uint8Array(buf), dv = new DataView(buf); let eocd = -1;
   for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
   if (eocd < 0) throw new Error('壓縮檔讀不到目錄');
@@ -263,22 +272,90 @@ async function unzip(buf) {
     const nameBytes = u8.subarray(p + 46, p + 46 + nl);
     let name; try { name = new TextDecoder((flag & 0x800) ? 'utf-8' : 'utf-8', { fatal: true }).decode(nameBytes); } catch { name = new TextDecoder('big5').decode(nameBytes); }
     p += 46 + nl + el + cl;
-    if (!/\.stl$/i.test(name)) continue;
+    if (!want.test(name)) continue;
     const ln = dv.getUint16(loc + 26, true), le = dv.getUint16(loc + 28, true), start = loc + 30 + ln + le, data = u8.subarray(start, start + csize);
     let raw;
     if (method === 0) raw = data.slice();
     else if (method === 8) raw = await inflate(data, 'deflate-raw');
     else throw new Error(name + '：不支援的壓縮方式');
-    out.push({ name: name.split('/').pop(), buf: raw.buffer });
+    out.push({ name: name.split('/').pop(), path: name, buf: raw.buffer });
   }
-  if (!out.length) throw new Error('壓縮檔裡沒有 STL');
+  if (!out.length) throw new Error(want.source.includes('stl') ? '壓縮檔裡沒有 STL' : '3MF 裡沒有模型');
   return out;
 }
+
+// ---------- 3MF（v1.1）：讀 3D/*.model，支援 Bambu 的 components＋transform ----------
+async function parse3MF(buf) {
+  const files = await unzip(buf, /\.model$/i), docs = {};
+  for (const f of files) docs['/' + f.path.replace(/^\/+/, '')] = new DOMParser().parseFromString(new TextDecoder().decode(f.buf), 'application/xml');
+  const keys = Object.keys(docs), main = keys.find((k) => /3dmodel\.model$/i.test(k)) || keys[0];
+  const UNIT = { millimeter: 1, micron: 0.001, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 };
+  const T = (str) => { if (!str) return null; const a = str.trim().split(/\s+/).map(Number); return a.length === 12 ? a : null; };
+  const ap = (M, x, y, z) => M ? [x * M[0] + y * M[3] + z * M[6] + M[9], x * M[1] + y * M[4] + z * M[7] + M[10], x * M[2] + y * M[5] + z * M[8] + M[11]] : [x, y, z];
+  const comp = (A, B) => { if (!A) return B; if (!B) return A; const C = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) C[r * 3 + c] = A[r * 3] * B[c] + A[r * 3 + 1] * B[3 + c] + A[r * 3 + 2] * B[6 + c] + (r === 3 ? B[9 + c] : 0); return C; };
+  const objOf = (doc, id) => [...doc.getElementsByTagNameNS('*', 'object')].find((o) => o.getAttribute('id') === String(id));
+  const norm = (pth) => pth ? '/' + pth.replace(/^\/+/, '') : null;
+  function emit(path, id, M, out, depth) {
+    const doc = docs[path]; if (!doc || depth > 8) return;
+    const sc = UNIT[doc.documentElement.getAttribute('unit') || 'millimeter'] || 1, obj = objOf(doc, id); if (!obj) return;
+    const mesh = obj.getElementsByTagNameNS('*', 'mesh')[0];
+    if (mesh) {
+      const V = [...mesh.getElementsByTagNameNS('*', 'vertex')].map((v) => ap(M, +v.getAttribute('x') * sc, +v.getAttribute('y') * sc, +v.getAttribute('z') * sc));
+      for (const t of mesh.getElementsByTagNameNS('*', 'triangle')) for (const k of ['v1', 'v2', 'v3']) { const q = V[+t.getAttribute(k)]; if (q) out.push(q[0], q[1], q[2]); }
+    }
+    for (const c of obj.getElementsByTagNameNS('*', 'component')) emit(norm(c.getAttribute('p:path')) || path, c.getAttribute('objectid'), comp(T(c.getAttribute('transform')), M), out, depth + 1);
+  }
+  const res = [], doc = docs[main];
+  for (const it of doc.getElementsByTagNameNS('*', 'item')) {
+    const out = [], pth = norm(it.getAttribute('p:path')) || main; emit(pth, it.getAttribute('objectid'), T(it.getAttribute('transform')), out, 0);
+    const o = objOf(docs[pth] || doc, it.getAttribute('objectid'));
+    if (out.length) res.push({ name: (o && o.getAttribute('name')) || ('物件 ' + it.getAttribute('objectid')), pos: new Float32Array(out) });
+  }
+  if (!res.length) throw new Error('3MF 裡讀不到模型');
+  return res;
+}
+// ---------- 下載用：3MF／STL 產生 ----------
+const CRCT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRCT[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files, type) {
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  for (const f of files) {
+    const nm = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
+    const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x800, true); h.setUint32(14, crc, true); h.setUint32(18, n, true); h.setUint32(22, n, true); h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, f.data);
+    const c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x800, true); c.setUint32(16, crc, true); c.setUint32(20, n, true); c.setUint32(24, n, true); c.setUint16(28, nm.length, true); c.setUint32(42, off, true);
+    cen.push(new Uint8Array(c.buffer), nm); off += 30 + nm.length + n;
+  }
+  const cs = cen.reduce((a, b) => a + b.length, 0), e = new DataView(new ArrayBuffer(22)); e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cs, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(e.buffer)], { type });
+}
+const escX = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function make3MF(items) {
+  const objs = [], build = [];
+  items.forEach((it, i) => {
+    const id = i + 1, map = new Map(), V = [], Tr = [], p = it.pos;
+    for (let k = 0; k < p.length; k += 3) { const key = p[k].toFixed(4) + ' ' + p[k + 1].toFixed(4) + ' ' + p[k + 2].toFixed(4); let v = map.get(key); if (v === undefined) { v = V.length; map.set(key, v); const [x, y, z] = key.split(' '); V.push(`<vertex x="${x}" y="${y}" z="${z}"/>`); } Tr.push(v); }
+    const tri = []; for (let k = 0; k < Tr.length; k += 3) if (Tr[k] !== Tr[k + 1] && Tr[k + 1] !== Tr[k + 2] && Tr[k] !== Tr[k + 2]) tri.push(`<triangle v1="${Tr[k]}" v2="${Tr[k + 1]}" v3="${Tr[k + 2]}"/>`);
+    objs.push(`<object id="${id}" name="${escX(it.name)}" type="model"><mesh><vertices>${V.join('')}</vertices><triangles>${tri.join('')}</triangles></mesh></object>`); build.push(`<item objectid="${id}"/>`);
+  });
+  const enc = new TextEncoder();
+  const model = `<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="zh-TW" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>${objs.join('')}</resources><build>${build.join('')}</build></model>`;
+  const ct = '<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>';
+  const rels = '<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>';
+  return zipStore([{ name: '[Content_Types].xml', data: enc.encode(ct) }, { name: '_rels/.rels', data: enc.encode(rels) }, { name: '3D/3dmodel.model', data: enc.encode(model) }], 'model/3mf');
+}
+function makeSTL(items) {
+  let n = 0; for (const it of items) n += it.pos.length / 9;
+  const buf = new ArrayBuffer(84 + n * 50), dv = new DataView(buf); dv.setUint32(80, n, true); let t = 0;
+  for (const it of items) { const p = it.pos; for (let i = 0; i < p.length; i += 9, t++) { const o = 84 + t * 50; const ux = p[i + 3] - p[i], uy = p[i + 4] - p[i + 1], uz = p[i + 5] - p[i + 2], wx = p[i + 6] - p[i], wy = p[i + 7] - p[i + 1], wz = p[i + 8] - p[i + 2]; let nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx; const L = Math.hypot(nx, ny, nz) || 1; dv.setFloat32(o, nx / L, true); dv.setFloat32(o + 4, ny / L, true); dv.setFloat32(o + 8, nz / L, true); for (let k = 0; k < 9; k++) dv.setFloat32(o + 12 + k * 4, p[i + k], true); } }
+  return new Blob([buf], { type: 'model/stl' });
+}
+function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
 
 // ---------- 模型 ----------
 const models = []; let selId = null, nextId = 1;
 const matCut = new THREE.MeshBasicMaterial({ color: 0xd63a3a, side: THREE.BackSide, clippingPlanes: [cutPlane], polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 });
-function addModel(name, pos) {
+function addModel(name, pos, opt = {}) {
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.computeVertexNormals(); geo.computeBoundingBox();
   const color = COLORS[(nextId - 1) % COLORS.length];
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.02, side: THREE.FrontSide, clippingPlanes: [cutPlane] });
@@ -287,8 +364,8 @@ function addModel(name, pos) {
   let edges = null;
   try { edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), new THREE.LineBasicMaterial({ color: 0x0b1015, transparent: true, opacity: 0.35, clippingPlanes: [cutPlane] })); edges.visible = $('edges').checked; g.add(edges); } catch {}
   world.add(g);
-  const m = { id: nextId++, name, pos, geo, g, mesh, edges, color, visible: true, stats: computeStats(pos) };
-  models.push(m); selId = m.id; layout(); renderFiles(); renderInfo(); fitView();
+  const m = { id: nextId++, name, pos, geo, g, mesh, edges, color, visible: true, stats: computeStats(pos), tx: opt.tx || 0, ty: opt.ty || 0, plate: opt.plate || 0 };
+  models.push(m); selId = m.id; if (!opt.quiet) { layout(); renderFiles(); renderInfo(); fitView(); }
   return m;
 }
 function computeStats(p) {
@@ -308,15 +385,85 @@ function computeStats(p) {
     for (const [u, v] of [[a, b], [b, c], [c, a]]) { const k = u < v ? u * 4194304 + v : v * 4194304 + u; E.set(k, (E.get(k) || 0) + 1); }
   }
   let open = 0, nonman = 0; for (const c of E.values()) { if (c === 1) open++; else if (c > 2) nonman++; }
-  return { tris: n, vol: Math.abs(vol), area, open, nonman, flipped: vol < 0 };
+  // 幾塊分開的實體（拆開用）
+  const par = new Int32Array(vid.size).map((_, i) => i), fd = (x) => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
+  const triV = new Int32Array(n * 3); for (let t = 0; t < n; t++) { const a = id(t * 9), b = id(t * 9 + 3), c = id(t * 9 + 6); triV[t * 3] = a; triV[t * 3 + 1] = b; triV[t * 3 + 2] = c; par[fd(b)] = fd(a); par[fd(c)] = fd(a); }
+  const roots = new Map(), triComp = new Int32Array(n); for (let t = 0; t < n; t++) { const r = fd(triV[t * 3]); if (!roots.has(r)) roots.set(r, roots.size); triComp[t] = roots.get(r); }
+  return { tris: n, vol: Math.abs(vol), area, open, nonman, flipped: vol < 0, bodies: roots.size, triComp };
 }
+let arranged = false, plateCount = 1;
 function layout() {
-  // 整組放到平台中央、底面貼平台（Z=0）
-  const box = new THREE.Box3(); world.position.set(0, 0, 0);
-  for (const m of models) if (m.visible) box.union(m.geo.boundingBox);
+  // 每件底面各自貼平台（Z=0）；沒排盤時整組放到平台中央，排過盤就照排好的位置
+  for (const m of models) m.g.position.set(m.tx, m.ty, -m.geo.boundingBox.min.z);
+  world.position.set(0, 0, 0); if (arranged) return;
+  const box = new THREE.Box3();
+  for (const m of models) if (m.visible) { const b = m.geo.boundingBox.clone(); b.translate(m.g.position); box.union(b); }
   if (box.isEmpty()) return;
   const c = box.getCenter(new THREE.Vector3());
-  world.position.set(-c.x, -c.y, -box.min.z);
+  world.position.set(-c.x, -c.y, 0);
+}
+function refreshAll(fit = true) { layout(); buildBed(); renderFiles(); renderInfo(); if (fit) fitView(); else requestDraw(); }
+function setPos(m, pos) {
+  m.pos = pos; m.geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); m.geo.computeVertexNormals(); m.geo.computeBoundingBox(); m.geo.computeBoundingSphere();
+  if (m.edges) { m.g.remove(m.edges); m.edges.geometry.dispose(); try { m.edges = new THREE.LineSegments(new THREE.EdgesGeometry(m.geo, 25), m.edges.material); m.edges.visible = $('edges').checked; m.g.add(m.edges); } catch { m.edges = null; } }
+}
+function rotate90(m) {   // 繞自己中心轉 90°（平放方向不變）
+  const b = m.geo.boundingBox, cx = (b.min.x + b.max.x) / 2, cy = (b.min.y + b.max.y) / 2, p = m.pos.slice();
+  for (let i = 0; i < p.length; i += 3) { const x = p[i] - cx, y = p[i + 1] - cy; p[i] = cx - y; p[i + 1] = cy + x; }
+  setPos(m, p);
+}
+function splitModel(m) {   // 拆成一件一件；疊在一起的（例如撕除式支撐）不拆開
+  const st = m.stats, nc = st.bodies, p = m.pos, bb = Array.from({ length: nc }, () => [1e9, 1e9, -1e9, -1e9]);
+  for (let t = 0; t < st.tris; t++) { const c = st.triComp[t], B = bb[c]; for (let k = 0; k < 3; k++) { const x = p[t * 9 + k * 3], y = p[t * 9 + k * 3 + 1]; if (x < B[0]) B[0] = x; if (y < B[1]) B[1] = y; if (x > B[2]) B[2] = x; if (y > B[3]) B[3] = y; } }
+  const g = new Int32Array(nc).map((_, i) => i), fg = (x) => { while (g[x] !== x) x = g[x] = g[g[x]]; return x; }, pad = 0.8;
+  for (let a = 0; a < nc; a++) for (let b = a + 1; b < nc; b++) { const A = bb[a], B = bb[b]; if (A[0] - pad < B[2] && B[0] - pad < A[2] && A[1] - pad < B[3] && B[1] - pad < A[3]) g[fg(b)] = fg(a); }
+  const groups = new Map(); for (let t = 0; t < st.tris; t++) { const r = fg(st.triComp[t]); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(t); }
+  if (groups.size < 2) return 0;
+  let k = 0; for (const tris of groups.values()) { const out = new Float32Array(tris.length * 9); tris.forEach((t, j) => out.set(p.subarray(t * 9, t * 9 + 9), j * 9)); addModel(`${m.name}｜${++k}`, out, { quiet: true, tx: m.tx, ty: m.ty, plate: m.plate }); }
+  removeModel(m.id, true); return k;
+}
+function arrange() {
+  const bed = +$('bedSize').value, gap = 5, room = bed - 2 * gap, list = models.filter((m) => m.visible);
+  if (!list.length) return;
+  const recs = list.map((m) => { const b = m.geo.boundingBox; return { m, w: b.max.x - b.min.x, h: b.max.y - b.min.y }; }).sort((a, c) => Math.max(c.w, c.h) - Math.max(a.w, a.h) || c.w * c.h - a.w * a.h);
+  const plates = [{ x: 0, y: 0, rowH: 0 }], bad = [];
+  const tryPlace = (P, r) => {
+    for (const rot of (r.w >= r.h ? [false, true] : [true, false])) {
+      const ww = rot ? r.h : r.w, hh = rot ? r.w : r.h; if (ww > room + 0.01 || hh > room + 0.01) continue;
+      let x = P.x, y = P.y, rowH = P.rowH; if (x + ww > room + 0.01) { x = 0; y += rowH + gap; rowH = 0; } if (y + hh > room + 0.01) continue;
+      return { x, y, rowH, ww, hh, rot };
+    }
+    return null;
+  };
+  for (const r of recs) {
+    let k = 0, s = null;
+    for (; k < plates.length; k++) { s = tryPlace(plates[k], r); if (s) break; }
+    if (!s) { plates.push({ x: 0, y: 0, rowH: 0 }); k = plates.length - 1; s = tryPlace(plates[k], r); }
+    if (!s) { bad.push(r.m.name); r.m.visible = false; r.m.g.visible = false; continue; }
+    if (s.rot) rotate90(r.m);
+    const b = r.m.geo.boundingBox, P = plates[k];
+    r.m.plate = k; r.m.tx = k * (bed + 30) - bed / 2 + gap + s.x - b.min.x; r.m.ty = bed / 2 - gap - s.y - (b.max.y - b.min.y) - b.min.y;
+    P.x = s.x + s.ww + gap; P.y = s.y; P.rowH = Math.max(s.rowH, s.hh);
+  }
+  arranged = true; plateCount = plates.length;
+  $('arrNote').textContent = `${bed} mm 平台：${plateCount} 盤` + (bad.length ? `；放不下（已取消打勾）：${bad.join('、')}` : '');
+  refreshAll();
+}
+function itemsOnPlate(k) {   // 輸出座標：0～bed（平台左下角為原點）
+  const bed = +$('bedSize').value, out = [];
+  for (const m of models) { if (!m.visible || (arranged && m.plate !== k)) continue;
+    const dx = m.g.position.x + world.position.x - (arranged ? k * (bed + 30) : 0) + bed / 2, dy = m.g.position.y + world.position.y + bed / 2, dz = m.g.position.z, p = new Float32Array(m.pos.length);
+    for (let i = 0; i < p.length; i += 3) { p[i] = m.pos[i] + dx; p[i + 1] = m.pos[i + 1] + dy; p[i + 2] = m.pos[i + 2] + dz; }
+    out.push({ name: m.name.replace(/\.(stl|3mf)$/i, ''), pos: p }); }
+  return out;
+}
+function renderDl() {
+  const row = $('dlRow'); row.innerHTML = ''; const n = arranged ? plateCount : 1, any = models.some((m) => m.visible);
+  for (let k = 0; k < n; k++) for (const [ext, f] of [['3mf', make3MF], ['stl', makeSTL]]) {
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = `下載${n > 1 ? `第 ${k + 1} 盤 ` : ' '}${ext.toUpperCase()}`; b.disabled = !any;
+    b.onclick = () => { const it = itemsOnPlate(k); if (!it.length) return; saveBlob(f(it), `plate${n > 1 ? '_' + (k + 1) : ''}_${+$('bedSize').value}mm.${ext}`); };
+    row.appendChild(b);
+  }
 }
 function worldBox() { const b = new THREE.Box3(); for (const m of models) if (m.visible) b.expandByObject(m.mesh); return b; }
 function fitView() {
@@ -326,11 +473,12 @@ function fitView() {
   orbit.target.copy(s.center); orbit.dist = clampDist(s.radius / Math.sin(camera.fov * Math.PI / 360) * 1.15);
   updateCutRange(); requestDraw();
 }
-function removeModel(id) {
+function removeModel(id, quiet) {
   const i = models.findIndex((m) => m.id === id); if (i < 0) return;
   const m = models[i]; world.remove(m.g); m.geo.dispose(); models.splice(i, 1);
   if (selId === id) selId = models.length ? models[models.length - 1].id : null;
-  clearMeasure(); layout(); renderFiles(); renderInfo(); fitView();
+  if (!models.length) { arranged = false; plateCount = 1; $('arrNote').textContent = ''; }
+  clearMeasure(); if (!quiet) refreshAll();
 }
 
 // ---------- 介面 ----------
@@ -338,17 +486,25 @@ const fmt = (v, d = 1) => Number(v).toLocaleString('zh-TW', { minimumFractionDig
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 function renderFiles() {
   const box = $('files'); box.innerHTML = '';
-  if (!models.length) { box.innerHTML = '<div class="empty">還沒有開檔。按上面「開啟 STL 檔」，或把檔案拖到左邊的視窗。</div>'; return; }
+  if (!models.length) { box.innerHTML = '<div class="empty">還沒有開檔。按上面「開啟檔案」，或把檔案拖到左邊的視窗。</div>'; renderDl(); updateTotal(); return; }
   for (const m of models) {
     const d = document.createElement('div'); d.className = 'file' + (m.id === selId ? ' sel' : '');
-    d.innerHTML = `<span class="sw" style="background:${hex(m.color)}"></span><span class="nm" title="${esc(m.name)}">${esc(m.name)}</span><button title="顯示／隱藏" aria-label="顯示或隱藏">${m.visible ? '隱藏' : '顯示'}</button><button title="關閉這個檔" aria-label="關閉">✕</button>`;
+    d.innerHTML = `<input type="checkbox" ${m.visible ? 'checked' : ''} title="打勾＝要印（排盤、下載）" aria-label="要印"><span class="sw" style="background:${hex(m.color)}"></span><span class="nm" title="${esc(m.name)}">${esc(m.name)}${arranged && plateCount > 1 && m.visible ? `（第 ${m.plate + 1} 盤）` : ''}</span>` +
+      (m.stats.bodies > 1 ? '<button data-a="split" title="拆成一件一件">拆開</button>' : '') + '<button data-a="dup" title="再複製一個">複製</button><button data-a="rot" title="轉 90°">轉</button><button data-a="del" title="刪掉這一件" aria-label="刪除">✕</button>';
     d.onclick = () => { selId = m.id; renderFiles(); renderInfo(); };
-    const [bv, bx] = d.querySelectorAll('button');
-    bv.onclick = (e) => { e.stopPropagation(); m.visible = !m.visible; m.g.visible = m.visible; layout(); renderFiles(); fitView(); };
-    bx.onclick = (e) => { e.stopPropagation(); removeModel(m.id); };
+    const cb = d.querySelector('input'); cb.onclick = (e) => e.stopPropagation();
+    cb.onchange = () => { m.visible = cb.checked; m.g.visible = m.visible; refreshAll(!arranged); };
+    d.querySelectorAll('button').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const a = b.dataset.a;
+      if (a === 'del') removeModel(m.id);
+      else if (a === 'dup') { const c = addModel(m.name.replace(/(（複製\d*）)?$/, '') + '（複製）', m.pos.slice(), { quiet: true, tx: m.tx + 8, ty: m.ty - 8, plate: m.plate }); if (arranged) arrange(); else refreshAll(); }
+      else if (a === 'rot') { rotate90(m); refreshAll(false); }
+      else if (a === 'split') { const k = splitModel(m); if (arranged) arrange(); else refreshAll(); if (!k) showError(m.name + '：分不開（零件互相疊在一起）'); } });
     box.appendChild(d);
   }
+  renderDl(); updateTotal();
 }
+function updateTotal() { let v = 0; for (const m of models) if (m.visible) v += m.stats.vol; $('wtAll').textContent = models.some((m) => m.visible) ? fmt(v / 1000 * (+$('mat').value) * (+$('fac').value || 1), 2) : '—'; }
+$('arrBtn').onclick = () => arrange();
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
 function renderInfo() {
   const m = models.find((x) => x.id === selId), el = $('info');
@@ -373,24 +529,25 @@ function renderInfo() {
 function updateWeight() {
   const m = models.find((x) => x.id === selId); if (!m) { $('wt').textContent = '—'; return; }
   const w = m.stats.vol / 1000 * (+$('mat').value) * (+$('fac').value || 1);
-  $('wt').textContent = fmt(w, 2);
+  $('wt').textContent = fmt(w, 2); updateTotal();
   try { localStorage.setItem('stlv', JSON.stringify({ mat: $('mat').value, fac: $('fac').value, bed: $('bedSize').value })); } catch {}
 }
 $('mat').onchange = updateWeight; $('fac').oninput = updateWeight;
 $('edges').onchange = () => { for (const m of models) if (m.edges) m.edges.visible = $('edges').checked; requestDraw(); };
 $('bedOn').onchange = () => { bedG.visible = $('bedOn').checked; requestDraw(); };
-$('bedSize').onchange = () => { buildBed(); renderInfo(); requestDraw(); };
+$('bedSize').onchange = () => { if (arranged) arrange(); else { buildBed(); renderInfo(); requestDraw(); } };
 try { const s = JSON.parse(localStorage.getItem('stlv') || '{}'); if (s.mat) $('mat').value = s.mat; if (s.fac) $('fac').value = s.fac; if (s.bed) $('bedSize').value = s.bed; } catch {}
 
 // 平台
 function buildBed() {
   while (bedG.children.length) { const c = bedG.children.pop(); c.geometry.dispose(); }
-  const S = +$('bedSize').value, h = S / 2, minor = [], major = [];
-  for (let x = -h; x <= h + 1e-6; x += 10) { const arr = Math.abs(Math.round(x)) % 50 === 0 ? major : minor; arr.push(x, -h, 0, x, h, 0, -h, x, 0, h, x, 0); }
+  const S = +$('bedSize').value, h = S / 2, NP = arranged ? plateCount : 1;
+  for (let pi = 0; pi < NP; pi++) { const ox = pi * (S + 30); const minor = [], major = [];
+  for (let x = -h; x <= h + 1e-6; x += 10) { const arr = Math.abs(Math.round(x)) % 50 === 0 ? major : minor; arr.push(ox + x, -h, 0, ox + x, h, 0, ox - h, x, 0, ox + h, x, 0); }
   const mk = (arr, col) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: new THREE.Color(col) })); };
   bedG.add(mk(minor, cssVar('--grid2') || '#e1e6ec'), mk(major, cssVar('--grid') || '#c9d1da'));
-  const fr = [-h, -h, 0, h, -h, 0, h, -h, 0, h, h, 0, h, h, 0, -h, h, 0, -h, h, 0, -h, -h, 0];
-  bedG.add(mk(fr, cssVar('--accent') || '#e2630f'));
+  const fr = [-h, -h, 0, h, -h, 0, h, -h, 0, h, h, 0, h, h, 0, -h, h, 0, -h, h, 0, -h, -h, 0].map((v, i) => i % 3 === 0 ? v + ox : v);
+  bedG.add(mk(fr, cssVar('--accent') || '#e2630f')); }
   // 前方標記（平台前緣中間的小三角形）
   const tri = new THREE.BufferGeometry(); tri.setAttribute('position', new THREE.Float32BufferAttribute([-6, -h - 2, 0, 6, -h - 2, 0, 0, -h - 10, 0], 3));
   bedG.add(new THREE.Mesh(tri, new THREE.MeshBasicMaterial({ color: new THREE.Color(cssVar('--accent') || '#e2630f'), side: THREE.DoubleSide })));
@@ -442,11 +599,13 @@ async function openFiles(list) {
   for (const f of list) {
     try {
       const buf = await f.arrayBuffer();
-      if (/\.zip$/i.test(f.name)) { for (const z of await unzip(buf)) addModel(z.name, parseSTL(z.buf)); }
-      else addModel(f.name, parseSTL(buf));
+      if (/\.3mf$/i.test(f.name)) { for (const o of await parse3MF(buf)) addModel(o.name, o.pos, { quiet: true }); }
+      else if (/\.zip$/i.test(f.name)) { for (const z of await unzip(buf)) addModel(z.name, parseSTL(z.buf), { quiet: true }); }
+      else addModel(f.name, parseSTL(buf), { quiet: true });
     } catch (err) { $('mres').textContent = ''; showError(f.name + '：' + err.message); }
   }
-  if (sampleModel && models.length > 1 && models.includes(sampleModel)) removeModel(sampleModel.id), sampleModel = null;
+  if (sampleModel && models.length > 1 && models.includes(sampleModel)) removeModel(sampleModel.id, true), sampleModel = null;
+  if (arranged) arrange(); else refreshAll();
 }
 function showError(msg) { const box = $('files'); const d = document.createElement('div'); d.className = 'pill bad'; d.style.whiteSpace = 'normal'; d.textContent = msg; box.prepend(d); }
 $('openBtn').onclick = () => $('fileIn').click();
@@ -468,7 +627,7 @@ async function loadSample() {
 }
 
 applyTheme(); renderFiles(); renderInfo(); resize(); loadSample();
-window.__stlv = { models, camera, world, THREE };
+window.__stlv = { models, camera, world, THREE, arrange, splitModel, itemsOnPlate, make3MF, parse3MF, get arranged() { return arranged; }, get plateCount() { return plateCount; } };
 </script>
 
 </body></html>
