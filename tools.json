@@ -49,6 +49,26 @@
       ]
     },
     {
+      "id": "parts",
+      "name": "配件小工具（研究測試）",
+      "file": "parts.html",
+      "icon": "tool",
+      "version": "1.0",
+      "updated": "2026-11-04",
+      "status": "研究測試",
+      "tags": [
+        "老師"
+      ],
+      "egg": true,
+      "hidden": true,
+      "desc": "搖桿眼鏡、搖桿軟套、裝槳小起子、扣環、TC 200I 環燈罩：用實測過的尺寸當預設，可以自己調孔徑、厚度，直接下載 STL。",
+      "steps": [
+        "選配件",
+        "調尺寸",
+        "下載 STL"
+      ]
+    },
+    {
       "id": "solder",
       "name": "燈條焊點實驗室",
       "file": "solder-lab.html",
